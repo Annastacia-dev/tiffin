@@ -1,5 +1,5 @@
 export const CATS = ["Proteins", "Grains & bread", "Dairy", "Vegetables", "Fruit", "Nuts & seeds", "Pantry", "Other"] as const;
-export const MEAL_TYPES = ["Breakfast", "Lunch", "Snack", "Supper"] as const;
+export const MEAL_TYPES = ["Breakfast", "Lunch", "Dinner", "Snack"] as const;
 
 export type Ingredient = {
   qty: number | null;
@@ -39,7 +39,7 @@ export const DEFAULT_SETTINGS: Settings = {
   diet: "Eats meat, chicken and fish. Focus on gut health and high fiber: whole grains, vegetables, fruit, nuts and seeds, fermented dairy like maziwa mala.",
   cuisines: ["Japanese", "Mexican", "Lebanese", "Indian", "Swahili", "Chinese", "Middle Eastern", "Mediterranean", "Thai", "Italian", "Ethiopian", "Kenyan"],
   location: "Nairobi, Kenya – only ingredients easy to find at Carrefour, Naivas, Quickmart or local markets",
-  notes: "Cooking for 1 person. Breakfast and lunch are packed for work, so they must travel well. Lunch recipes make 2–3 portions so leftovers cover supper.",
+  notes: "Cooking for 1 person. Breakfast and lunch are packed for work, so they must travel well. Lunch recipes make 2–3 portions so leftovers cover dinner.",
   meals: ["Breakfast", "Lunch", "Snack"],
   days: [0, 1, 2, 3, 4],
   lunchPortions: 3,

@@ -7,8 +7,8 @@ import { CATS, DEFAULT_SETTINGS, MEAL_TYPES, Settings, cleanRecipe } from "@/lib
 export const maxDuration = 60;
 
 function buildPrompt(st: Settings, meal: string, n: number, hint: string, avoid: string[], paste: boolean) {
-  const portions = meal === "Lunch" || meal === "Supper"
-    ? `${st.lunchPortions} portions (one for lunch, the rest for supper or the next day)`
+  const portions = meal === "Lunch" || meal === "Dinner"
+    ? `${st.lunchPortions} portions (one for ${meal.toLowerCase()}, the rest for ${meal === "Lunch" ? "dinner" : "lunch"} or the next day)`
     : "1 portion";
   return `You are a meal-planning assistant. ${paste
     ? "Turn the user's description or pasted recipe below into ONE structured recipe; if it is a full recipe, stay faithful to it."

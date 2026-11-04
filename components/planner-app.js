@@ -8,8 +8,8 @@ export function mountPlanner(){
 if(mounted)return;mounted=true;
 /* ---------- constants & defaults ---------- */
 const CATS=["Proteins","Grains & bread","Dairy","Vegetables","Fruit","Nuts & seeds","Pantry","Other"];
-const MEAL_TYPES=["Breakfast","Lunch","Snack","Supper"];
-const MEAL_SHORT={Breakfast:"B",Lunch:"L",Snack:"Sn",Supper:"Su"};
+const MEAL_TYPES=["Breakfast","Lunch","Dinner","Snack"];
+const MEAL_SHORT={Breakfast:"B",Lunch:"L",Dinner:"D",Snack:"S"};
 const WD=["Mon","Tue","Wed","Thu","Fri","Sat","Sun"];
 const WD_L=["Monday","Tuesday","Wednesday","Thursday","Friday","Saturday","Sunday"];
 const MONTHS=["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
@@ -19,7 +19,7 @@ const DEFAULTS={
   diet:"Eats meat, chicken and fish. Focus on gut health and high fiber: whole grains, vegetables, fruit, nuts and seeds, fermented dairy like maziwa mala.",
   cuisines:["Japanese","Mexican","Lebanese","Indian","Swahili","Chinese","Middle Eastern","Mediterranean","Thai","Italian","Ethiopian","Kenyan"],
   location:"Nairobi, Kenya – only ingredients easy to find at Carrefour, Naivas, Quickmart or local markets",
-  notes:"Cooking for 1 person. Breakfast and lunch are packed for work, so they must travel well. Lunch recipes make 2–3 portions so leftovers cover supper.",
+  notes:"Cooking for 1 person. Breakfast and lunch are packed for work, so they must travel well. Lunch recipes make 2–3 portions so leftovers cover dinner.",
   meals:["Breakfast","Lunch","Snack"],
   days:[0,1,2,3,4],
   lunchPortions:3
@@ -81,6 +81,8 @@ function slotsOf(date){return S.days[date]||{}}
 function recipeAt(date,meal){const id=slotsOf(date)[meal];return id?S.recipes[id]:null}
 function weekDates(mon){const st=settings();return [...Array(7)].map((_,i)=>addDays(mon,i)).filter(d=>st.days.includes(wdIdx(d)))}
 function monthDates(first){const st=settings(),out=[];let d=new Date(first.getFullYear(),first.getMonth(),1);while(d.getMonth()===first.getMonth()){if(st.days.includes(wdIdx(d)))out.push(new Date(d));d=addDays(d,1)}return out}
+// One save at a time, in order, so a quick Undo can't be overwritten by the change it undoes
+let planSaves=Promise.resolve();
 async function applyChanges(changes){ // changes: {date:{meal:id|null}}
   for(const [date,meals] of Object.entries(changes)){
     const day=Object.assign({},S.days[date]||{});
@@ -88,7 +90,7 @@ async function applyChanges(changes){ // changes: {date:{meal:id|null}}
     if(Object.keys(day).length) S.days[date]=day; else delete S.days[date];
   }
   render();
-  const ok=await api("POST","/api/plan",{changes});
+  const ok=await (planSaves=planSaves.then(()=>api("POST","/api/plan",{changes})));
   if(!ok)loadState(); // the save failed: go back to what the server has
 }
 function changeWithUndo(changes,msg){
@@ -194,7 +196,7 @@ function renderPlan(){
   else label=MONTHS_L[ui.anchor.getMonth()]+" "+ui.anchor.getFullYear();
   const dates=scopeDates(),total=dates.length*st.meals.length;
   let filled=0;dates.forEach(d=>st.meals.forEach(m=>{if(recipeAt(ymd(d),m))filled++}));
-  const empty=total-filled,anySlots=dates.some(d=>Object.keys(slotsOf(ymd(d))).length);
+  const empty=total-filled,anySlots=dates.some(d=>st.meals.some(m=>slotsOf(ymd(d))[m]));
   let h=`<div class="toolbar">
     <div class="seg"><button data-mode="week" class="${isWeek?"on":""}" aria-pressed="${isWeek}">Week</button><button data-mode="month" class="${!isWeek?"on":""}" aria-pressed="${!isWeek}">Month</button></div>
     <div class="navdate"><button class="icon" data-nav="-1" aria-label="Previous ${isWeek?"week":"month"}">‹</button><span class="lbl" aria-live="polite">${label}</span><button class="icon" data-nav="1" aria-label="Next ${isWeek?"week":"month"}">›</button><button class="link" data-nav="0">Today</button></div>
@@ -251,7 +253,7 @@ function renderMonth(st){
   let h=`<div class="month">${WD.map(w=>`<div class="hd">${w}</div>`).join("")}`;
   while(d<=last||wdIdx(d)!==0){
     const id=ymd(d),sl=slotsOf(id),inM=d.getMonth()===first.getMonth(),on=st.days.includes(wdIdx(d));
-    const planned=MEAL_TYPES.filter(m=>sl[m]&&S.recipes[sl[m]]);
+    const planned=st.meals.filter(m=>sl[m]&&S.recipes[sl[m]]);
     const lines=planned.map(m=>`<span class="m"><b>${MEAL_SHORT[m]}</b> ${esc(S.recipes[sl[m]].title)}</span>`).join("");
     const n=planned.length;
     h+=`<button class="cell ${inM?"":"out"} ${on?"":"off"} ${id===ymd(today)?"today":""}" data-goday="${id}" aria-label="${WD_L[wdIdx(d)]} ${d.getDate()} ${MONTHS_L[d.getMonth()]}, ${n} meal${n===1?"":"s"} planned"><span class="num">${d.getDate()}</span>${lines}${n?`<span class="cnt">${n} meal${n>1?"s":""}</span>`:""}</button>`;
@@ -275,10 +277,10 @@ function shopRange(){
   }
 }
 function buildList(from,to){
-  const items={};let meals=0;
+  const items={},on=settings().meals;let meals=0;
   for(let d=new Date(from);d<=to;d=addDays(d,1)){
     const sl=slotsOf(ymd(d));
-    for(const id of Object.values(sl)){const r=S.recipes[id];if(!r)continue;meals++;
+    for(const [m,id] of Object.entries(sl)){const r=S.recipes[id];if(!r||!on.includes(m))continue;meals++;
       (r.ingredients||[]).forEach(i=>{
         const name=String(i.item||"").trim().toLowerCase();if(!name||name==="water")return;
         const cat=CATS.includes(i.category)?i.category:"Other";
@@ -339,6 +341,9 @@ function renderRecipes(){
         <button class="btn quiet danger" data-act="del-recipe" data-id="${esc(r.id)}">${ui.delArm===r.id?"Tap again to delete":"Delete recipe"}</button>
       </div></section>`;
   }
+  const on=settings().meals;
+  if(ui.recFilter!=="All"&&!on.includes(ui.recFilter))ui.recFilter="All";
+  if(!on.includes(ui.newType))ui.newType=on.includes("Lunch")?"Lunch":on[0];
   const q=ui.recSearch.trim().toLowerCase();
   const list=all.filter(r=>(ui.recFilter==="All"||r.mealType===ui.recFilter)&&(!q||(r.title+" "+(r.cuisine||"")).toLowerCase().includes(q)))
     .sort((a,b)=>a.title.localeCompare(b.title));
@@ -347,11 +352,11 @@ function renderRecipes(){
   <details class="card aiadd" id="aiadd" ${aiOpen?"open":""}><summary>✨ Add a recipe with AI</summary>
     <p class="muted">Describe a dish you'd like, or paste a recipe from anywhere and it'll be tidied into your format.</p>
     <textarea id="newdesc" aria-label="Describe or paste a recipe" placeholder="e.g. A Thai green curry with chicken and lots of veg, packable for lunch">${esc(ui.newDesc)}</textarea>
-    <div class="row" style="margin-top:8px"><select id="newtype" aria-label="Meal type" style="width:auto">${MEAL_TYPES.map(m=>`<option ${m===ui.newType?"selected":""}>${m}</option>`).join("")}</select>
+    <div class="row" style="margin-top:8px"><select id="newtype" aria-label="Meal type" style="width:auto">${on.map(m=>`<option ${m===ui.newType?"selected":""}>${m}</option>`).join("")}</select>
     <button class="btn" data-act="ai-create">Create recipe</button></div>
   </details>
   <div class="row recfilters"><input type="search" id="recsearch" aria-label="Search recipes" placeholder="Search recipes" value="${esc(ui.recSearch)}">
-    <div class="seg">${["All",...MEAL_TYPES].map(m=>`<button data-recf="${m}" class="${ui.recFilter===m?"on":""}" aria-pressed="${ui.recFilter===m}">${m}</button>`).join("")}</div></div>`;
+    <div class="seg">${["All",...on].map(m=>`<button data-recf="${m}" class="${ui.recFilter===m?"on":""}" aria-pressed="${ui.recFilter===m}">${m}</button>`).join("")}</div></div>`;
   if(!list.length) return h+(all.length
     ?`<div class="card empty"><b>No recipes match</b>Try another search or meal type.<div class="emptyact"><button class="btn ghost" data-act="clear-filters">Clear filters</button></div></div>`
     :`<div class="card empty"><b>No recipes here yet</b>Create one above, or use "Fill with AI" on the Plan tab.</div>`);
@@ -365,9 +370,9 @@ function renderSettings(){
   <form id="settingsform" novalidate>
   <section class="card form">
     <h3>What to plan</h3>
-    <label>Meals to plan</label><div class="checks">${MEAL_TYPES.map(m=>`<label><input type="checkbox" name="s-meal" value="${m}" ${st.meals.includes(m)?"checked":""}>${m}</label>`).join("")}</div>
+    <label>Meals to plan</label><div class="help">Switched-off meals leave your plan and shopping list. Their recipes and planned days are kept, so switching one back on restores them.</div><div class="checks">${MEAL_TYPES.map(m=>`<label><input type="checkbox" name="s-meal" value="${m}" ${st.meals.includes(m)?"checked":""}>${m}</label>`).join("")}</div>
     <label>Days to plan</label><div class="checks">${WD.map((w,i)=>`<label><input type="checkbox" name="s-day" value="${i}" ${st.days.includes(i)?"checked":""}>${w}</label>`).join("")}</div>
-    <label for="s-lp">Lunch portions per recipe</label><input type="number" id="s-lp" min="1" max="8" value="${esc(st.lunchPortions)}" style="width:100px">
+    <label for="s-lp">Portions per lunch or dinner recipe</label><input type="number" id="s-lp" min="1" max="8" value="${esc(st.lunchPortions)}" style="width:100px">
   </section>
   <section class="card form">
     <h3>Food preferences</h3>
@@ -528,7 +533,7 @@ main.addEventListener("click",e=>{
     case "ai-fill": fillAI(scopeDates());break;
     case "lib-fill": fillLib(scopeDates());break;
     case "clear":{
-      const ch={};scopeDates().forEach(d=>{const id=ymd(d);const sl=slotsOf(id);if(Object.keys(sl).length){ch[id]={};Object.keys(sl).forEach(m=>ch[id][m]=null)}});
+      const ch={};scopeDates().forEach(d=>{const id=ymd(d);const ms=settings().meals.filter(m=>slotsOf(id)[m]);if(ms.length){ch[id]={};ms.forEach(m=>ch[id][m]=null)}});
       changeWithUndo(ch,(ui.mode==="week"?"Week":"Month")+" cleared");break}
     case "ai-slot": aiSlot(ds.date,ds.meal);break;
     case "rm-slot": changeWithUndo({[ds.date]:{[ds.meal]:null}},ds.meal+" removed");break;
@@ -598,7 +603,7 @@ function goToday(){
   const st=settings();let d=new Date(today);
   for(let i=0;i<7&&!st.days.includes(wdIdx(d));i++)d=addDays(d,1); // weekend/off day -> next planned day
   ui.mode="week";ui.day=ymd(d);ui.anchor=mondayOf(d);
-  const h=new Date().getHours(),want=d.getTime()!==today.getTime()?"Breakfast":h<10?"Breakfast":h<14?"Lunch":"Snack";
+  const h=new Date().getHours(),want=d.getTime()!==today.getTime()?"Breakfast":h<10?"Breakfast":h<14?"Lunch":h<17?"Snack":"Dinner";
   const i=st.meals.indexOf(want);ui.meal=i>=0?i:0;
 }
 route();

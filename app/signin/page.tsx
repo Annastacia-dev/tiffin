@@ -84,8 +84,12 @@ export default function SignIn() {
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
                 />
-                <button type="button" className="link" aria-pressed={showPw} onClick={() => setShowPw(!showPw)}>
-                  {showPw ? "Hide" : "Show"}
+                <button type="button" className="pweye" aria-label={showPw ? "Hide password" : "Show password"} onClick={() => setShowPw(!showPw)}>
+                  <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                    <path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7-10-7-10-7z" />
+                    <circle cx="12" cy="12" r="3" />
+                    {showPw && <path d="M4 4l16 16" />}
+                  </svg>
                 </button>
               </span>
               {signup && <small className="muted">At least 8 characters.</small>}

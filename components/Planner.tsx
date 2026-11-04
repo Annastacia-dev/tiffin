@@ -1,7 +1,6 @@
 "use client";
 
 import { useEffect } from "react";
-import { signOut } from "next-auth/react";
 // @ts-ignore – plain JS module
 import { mountPlanner } from "./planner-app.js";
 
@@ -13,15 +12,8 @@ export default function Planner({ name }: { name: string }) {
   return (
     <>
       <header>
-        <div className="headrow">
-          <div>
-            <h1>Tiffin</h1>
-            {name && <p className="sub">Hi {name} – here's what's in your lunchbox.</p>}
-          </div>
-          <button type="button" className="signout" onClick={() => signOut({ callbackUrl: "/signin" })}>
-            Sign out
-          </button>
-        </div>
+        <h1>Tiffin</h1>
+        {name && <p className="sub">Hi {name} – here's what's in your lunchbox.</p>}
       </header>
       <nav aria-label="Main"><div className="tabs" id="nav" /></nav>
       <div id="banner" role="status" />
