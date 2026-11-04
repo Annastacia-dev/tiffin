@@ -2,6 +2,7 @@
 // The planner UI: plain DOM code mounted into the markup rendered by Planner.tsx.
 // Data comes from the Next.js API routes (Supabase behind them).
 import { signOut } from "next-auth/react";
+import { fmtWall, prepSchedule, wallToInstant } from "../lib/reminders";
 
 let mounted=false;
 export function mountPlanner(){
@@ -22,7 +23,13 @@ const DEFAULTS={
   notes:"Cooking for 1 person. Breakfast and lunch are packed for work, so they must travel well. Lunch recipes make 2–3 portions so leftovers cover dinner.",
   meals:["Breakfast","Lunch","Snack"],
   days:[0,1,2,3,4],
-  lunchPortions:3
+  lunchPortions:3,
+  showCalories:false,
+  mealTimes:{Breakfast:"07:00",Lunch:"12:30",Dinner:"19:00",Snack:"15:30"},
+  reminders:{prep:true,cook:false},
+  quietStart:"22:00",
+  quietEnd:"07:00",
+  timezone:"Africa/Nairobi"
 };
 const svg=p=>`<svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${p}</svg>`;
 const TABS=[
@@ -33,10 +40,10 @@ const TABS=[
 ];
 
 /* ---------- state ---------- */
-const S={recipes:{},days:{},settings:null,checks:{},profile:null};
+const S={recipes:{},days:{},settings:null,checks:{},profile:null,pushKey:null};
 let today=new Date(); today.setHours(0,0,0,0);
 const ui={tab:"plan",mode:"week",anchor:mondayOf(today),day:ymd(today),meal:0,shopRange:"week",shopFrom:null,shopTo:null,hideDone:false,recFilter:"All",recSearch:"",openRecipe:null,aiHint:"",delArm:null,
-  loaded:false,loadFailed:false,dirty:false,profileDirty:false,settingsDraft:null,aiOpen:null,newDesc:"",newType:"Lunch",addDate:null};
+  loaded:false,loadFailed:false,dirty:false,profileDirty:false,settingsDraft:null,aiOpen:null,newDesc:"",newType:"Lunch",addDate:null,push:"checking"};
 
 /* ---------- utils ---------- */
 function esc(s){return String(s??"").replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;")}
@@ -121,10 +128,11 @@ async function loadState(){
     if(r.status===401){location.href="/signin";return}
     if(!r.ok)throw new Error("HTTP "+r.status);
     const j=await r.json();
-    S.recipes=j.recipes||{};S.days=j.days||{};S.settings=j.settings||null;S.checks=j.checks||{};S.profile=j.profile||S.profile;
+    S.recipes=j.recipes||{};S.days=j.days||{};S.settings=j.settings||null;S.checks=j.checks||{};S.profile=j.profile||S.profile;S.pushKey=j.push?.publicKey||null;
     const first=!ui.loaded;
-    ui.loaded=true;ui.loadFailed=false;banner("");
-    if(first){goToday();render()}else softRender();
+    ui.loaded=true;ui.loadFailed=false;
+    banner(r.headers.get("x-tiffin-offline")?"You're offline. This is your last saved plan, and changes won't save until you reconnect.":"");
+    if(first){goToday();render();refreshPush()}else softRender();
   }catch(e){
     console.error(e);
     if(ui.loaded)banner("Couldn't refresh your saved data – check your connection.");
@@ -175,14 +183,24 @@ function render(){
   if(fk){const el=main.querySelector(fk)||main.querySelector('.mealhead[aria-expanded="true"]');if(el)el.focus({preventScroll:true})}
 }
 
-function recipeHTML(r,{showType=true,showTitle=true}={}){
+function kcal(n){return "≈"+Number(n).toLocaleString()+" kcal"}
+function hoursLabel(h){return h+(h===1?" hour":" hours")}
+function prepHTML(r,date,meal){
+  if(!r.prep||!r.prep.length)return"";
+  const st=settings(),sched=date?prepSchedule(r,date,meal,st):r.prep;
+  return `<div class="prepbox"><h4>Prep ahead</h4><ul>${sched.map(s=>{
+    const passed=date&&wallToInstant(s.wall,st.timezone).getTime()<Date.now();
+    return `<li><b>${esc(s.task)}</b> <span class="muted">${hoursLabel(s.hoursBefore)} before cooking${date?(passed?" · start time has passed":" · start by "+fmtWall(s.wall)):""}</span></li>`}).join("")}</ul></div>`;
+}
+function recipeHTML(r,{showType=true,showTitle=true,date=null,meal=null}={}){
   const v=violates(r);
   let ing="",grp="";
   (r.ingredients||[]).forEach(i=>{const g=i.group||"";if(g!==grp){grp=g;if(g)ing+=`<li class="subhead">${esc(g)}</li>`}ing+=`<li>${esc(fmtIng(i))}</li>`});
   return `${showType?`<span class="tag">${esc(r.mealType||"")}</span>`:""}
     ${showTitle?`<h3>${esc(r.title)}</h3>`:""}
-    <div class="meta">${[r.cuisine,r.servings].filter(Boolean).map(esc).join(" · ")}</div>
+    <div class="meta">${[r.cuisine,r.servings,settings().showCalories&&r.calories?kcal(r.calories)+" per portion":""].filter(Boolean).map(esc).join(" · ")}</div>
     ${v.length?`<div class="warnbox">⚠ Contains something on your exclusion list: ${esc(v.join(", "))}</div>`:""}
+    ${prepHTML(r,date,meal)}
     <div class="cols"><div><h4>Ingredients</h4><ul class="ing">${ing}</ul></div>
     <div><h4>Recipe</h4><ol class="steps">${(r.steps||[]).map(s=>`<li>${esc(s)}</li>`).join("")}</ol>
     ${r.tip?`<div class="tip"><b>Tip:</b> ${esc(r.tip)}</div>`:""}</div></div>`;
@@ -219,19 +237,27 @@ function renderWeek(st){
   let h=`<div class="daytabs">${dates.map(d=>{const id=ymd(d);const n=st.meals.filter(m=>recipeAt(id,m)).length;
     return `<button data-day="${id}" class="${id===ui.day?"on":""} ${id===todayId?"today":""}" aria-pressed="${id===ui.day}" aria-label="${WD_L[wdIdx(d)]} ${shortDate(d)}${id===todayId?", today":""}, ${n} of ${st.meals.length} meals planned">${WD[wdIdx(d)]}<small>${shortDate(d)}</small><span class="pips" aria-hidden="true">${st.meals.map(m=>`<i class="${recipeAt(id,m)?"f":""}"></i>`).join("")}</span></button>`}).join("")}</div>`;
   const date=ui.day,dd=parse(date);
-  h+=`<h2 class="dayh">${WD_L[wdIdx(dd)]} ${shortDate(dd)}${date===todayId?' <span class="tag">Today</span>':""}</h2>`;
+  const dayRecipes=st.meals.map(m=>recipeAt(date,m)).filter(Boolean),dayCal=dayRecipes.reduce((n,r)=>n+(r.calories||0),0),noCal=dayRecipes.filter(r=>!r.calories).length;
+  h+=`<h2 class="dayh">${WD_L[wdIdx(dd)]} ${shortDate(dd)}${date===todayId?' <span class="tag">Today</span>':""}${st.showCalories&&dayCal?`<span class="daykcal">${kcal(dayCal)}${noCal?` + ${noCal} unknown`:""}</span>`:""}</h2>`;
   h+=st.meals.map((meal,i)=>{
     const r=recipeAt(date,meal),open=i===ui.meal,bad=r&&violates(r).length;
     return `<section class="mealcard ${open?"open":""}">
       <button class="mealhead" data-meal="${i}" aria-expanded="${open}">
         <span class="mealname">${esc(meal)}</span>
-        <span class="mealtitle ${r?"":"none"}">${bad?"⚠ ":""}${r?esc(r.title):"Nothing planned"}</span>
+        <span class="mealtitle ${r?"":"none"}">${bad?"⚠ ":""}${r?esc(r.title):"Nothing planned"}${r?mealSub(r,date,meal,st):""}</span>
         <span class="chev" aria-hidden="true">›</span>
       </button>
-      ${open?`<div class="mealbody">${r?recipeHTML(r,{showType:false,showTitle:false}):`<div class="empty"><b>No ${esc(meal.toLowerCase())} planned</b>Pick one of your recipes or ask AI for a new idea.</div>`}${slotActions(date,meal,r)}</div>`:""}
+      ${open?`<div class="mealbody">${r?recipeHTML(r,{showType:false,showTitle:false,date,meal}):`<div class="empty"><b>No ${esc(meal.toLowerCase())} planned</b>Pick one of your recipes or ask AI for a new idea.</div>`}${slotActions(date,meal,r)}</div>`:""}
     </section>`;
   }).join("");
   return h;
+}
+function mealSub(r,date,meal,st){
+  const bits=[];
+  if(st.showCalories&&r.calories)bits.push(kcal(r.calories));
+  const sched=prepSchedule(r,date,meal,st).sort((a,b)=>a.wall-b.wall)[0];
+  if(sched)bits.push("Start prep "+fmtWall(sched.wall));
+  return bits.length?`<small class="mealsub">${esc(bits.join(" · "))}</small>`:"";
 }
 function slotActions(date,meal,r){
   const opts=Object.values(S.recipes).filter(x=>x.mealType===meal).sort((a,b)=>a.title.localeCompare(b.title))
@@ -360,7 +386,7 @@ function renderRecipes(){
   if(!list.length) return h+(all.length
     ?`<div class="card empty"><b>No recipes match</b>Try another search or meal type.<div class="emptyact"><button class="btn ghost" data-act="clear-filters">Clear filters</button></div></div>`
     :`<div class="card empty"><b>No recipes here yet</b>Create one above, or use "Fill with AI" on the Plan tab.</div>`);
-  return h+`<div class="reclist">${list.map(r=>`<button class="recitem" data-open="${esc(r.id)}"><span class="tag">${esc(r.mealType)}</span><span class="t">${violates(r).length?"⚠ ":""}${esc(r.title)}</span><span class="s">${esc([r.cuisine,r.servings].filter(Boolean).join(" · "))}</span></button>`).join("")}</div>`;
+  return h+`<div class="reclist">${list.map(r=>`<button class="recitem" data-open="${esc(r.id)}"><span class="tag">${esc(r.mealType)}</span><span class="t">${violates(r).length?"⚠ ":""}${esc(r.title)}</span><span class="s">${esc([r.cuisine,r.servings,settings().showCalories&&r.calories?kcal(r.calories):""].filter(Boolean).join(" · "))}</span></button>`).join("")}</div>`;
 }
 
 /* ---------- settings ---------- */
@@ -373,6 +399,19 @@ function renderSettings(){
     <label>Meals to plan</label><div class="help">Switched-off meals leave your plan and shopping list. Their recipes and planned days are kept, so switching one back on restores them.</div><div class="checks">${MEAL_TYPES.map(m=>`<label><input type="checkbox" name="s-meal" value="${m}" ${st.meals.includes(m)?"checked":""}>${m}</label>`).join("")}</div>
     <label>Days to plan</label><div class="checks">${WD.map((w,i)=>`<label><input type="checkbox" name="s-day" value="${i}" ${st.days.includes(i)?"checked":""}>${w}</label>`).join("")}</div>
     <label for="s-lp">Portions per lunch or dinner recipe</label><input type="number" id="s-lp" min="1" max="8" value="${esc(st.lunchPortions)}" style="width:100px">
+    <label>Calories</label><div class="help">AI estimates per portion. They're a guide, not a measurement.</div>
+    <div class="checks"><label><input type="checkbox" id="s-cal" ${st.showCalories?"checked":""}>Show calories for each meal</label></div>
+  </section>
+  <section class="card form">
+    <h3>Cook times &amp; reminders</h3>
+    <label>When do you cook each meal?</label><div class="help">Prep reminders count back from these times.</div>
+    <div class="timegrid">${MEAL_TYPES.map(m=>`<label class="field"><span>${m}</span><input type="time" id="s-time-${m}" value="${esc(st.mealTimes[m]||DEFAULTS.mealTimes[m])}"></label>`).join("")}</div>
+    <label>What to remind me about</label>
+    <div class="checks"><label><input type="checkbox" id="s-rem-prep" ${st.reminders.prep?"checked":""}>Prep ahead, like marinating or soaking</label><label><input type="checkbox" id="s-rem-cook" ${st.reminders.cook?"checked":""}>Time to cook</label></div>
+    <label>Quiet hours</label><div class="help">A prep reminder that lands in these hours comes 30 minutes before they start. So an overnight chia soak reminds you the evening before.</div>
+    <div class="timegrid"><label class="field"><span>From</span><input type="time" id="s-quiet-start" value="${esc(st.quietStart)}"></label><label class="field"><span>To</span><input type="time" id="s-quiet-end" value="${esc(st.quietEnd)}"></label></div>
+    ${enrichHTML()}
+    <label>Notifications on this device</label>${pushHTML()}
   </section>
   <section class="card form">
     <h3>Food preferences</h3>
@@ -386,6 +425,7 @@ function renderSettings(){
   </section>
   <div class="savebar ${ui.dirty?"dirty":""}" id="savebar"><span class="muted" id="dirtynote" role="status">${ui.dirty?"Unsaved changes":""}</span><button class="btn" data-act="save-settings">Save settings</button></div>
   </form>
+  ${installStatus()?`<section class="card form"><h3>Install Tiffin</h3>${installStatus()==="ios"?'<p class="muted">Tap Share in Safari, then Add to Home Screen.</p>':'<p class="muted">Open it from your home screen, like any other app.</p><button type="button" class="btn ghost" data-act="install">Install app</button>'}</section>`:""}
   <h2 id="profile" style="margin-top:28px">Profile</h2>
   <form class="card form" id="profileform" novalidate>
     <label for="p-name">Name</label><input type="text" id="p-name" autocomplete="name" value="${esc(S.profile?.name||"")}">
@@ -397,13 +437,34 @@ function renderSettings(){
     <div class="row" style="margin-top:18px"><button class="btn" data-act="save-profile">Save profile</button><button type="button" class="link" data-act="signout">Sign out</button></div>
   </form>`;
 }
+function enrichHTML(){
+  const n=Object.values(S.recipes).filter(r=>r.calories==null||r.prep==null).length;
+  return n?`<label>Saved recipes</label><div class="help">${n} saved recipe${n>1?"s don't":" doesn't"} have calories or prep times yet. New AI recipes get them automatically.</div><button type="button" class="btn ghost" data-act="enrich">✨ Add them with AI</button>`:"";
+}
+function pushHTML(){
+  switch(ui.push){
+    case "checking": return '<p class="muted">Checking…</p>';
+    case "unconfigured": return '<p class="muted">Notifications aren\'t set up on the server yet. The README explains how.</p>';
+    case "ios-install": return '<p class="muted">On iPhone and iPad, install Tiffin first: tap Share in Safari, then Add to Home Screen. Then open it from your home screen and come back here.</p>';
+    case "unsupported": return '<p class="muted">This browser can\'t receive notifications.</p>';
+    case "denied": return '<p class="muted">Notifications are blocked for Tiffin. Allow them in your browser or phone settings, then reload.</p>';
+    case "on": return '<p class="muted">On. You\'ll get reminders here even when Tiffin is closed.</p><div class="row"><button type="button" class="btn ghost" data-act="push-test">Send a test</button><button type="button" class="btn quiet" data-act="push-off">Turn off</button></div>';
+    default: return '<button type="button" class="btn" data-act="push-on">Turn on notifications</button>';
+  }
+}
 function readSettings(){
   const split=s=>s.split(",").map(x=>x.trim()).filter(Boolean);
   const meals=[...document.querySelectorAll('input[name="s-meal"]:checked')].map(x=>x.value);
   const days=[...document.querySelectorAll('input[name="s-day"]:checked')].map(x=>+x.value);
   return {exclusions:split(document.getElementById("s-excl").value),diet:document.getElementById("s-diet").value.trim(),notes:document.getElementById("s-notes").value.trim(),
     cuisines:split(document.getElementById("s-cuis").value),location:document.getElementById("s-loc").value.trim(),
-    meals:MEAL_TYPES.filter(m=>meals.includes(m)),days:days.sort(),lunchPortions:Math.max(1,Math.min(8,+document.getElementById("s-lp").value||3))};
+    meals:MEAL_TYPES.filter(m=>meals.includes(m)),days:days.sort(),lunchPortions:Math.max(1,Math.min(8,+document.getElementById("s-lp").value||3)),
+    showCalories:document.getElementById("s-cal").checked,
+    mealTimes:Object.fromEntries(MEAL_TYPES.map(m=>[m,document.getElementById("s-time-"+m).value||DEFAULTS.mealTimes[m]])),
+    reminders:{prep:document.getElementById("s-rem-prep").checked,cook:document.getElementById("s-rem-cook").checked},
+    quietStart:document.getElementById("s-quiet-start").value||DEFAULTS.quietStart,
+    quietEnd:document.getElementById("s-quiet-end").value||DEFAULTS.quietEnd,
+    timezone:Intl.DateTimeFormat().resolvedOptions().timeZone||DEFAULTS.timezone};
 }
 
 /* ---------- AI ---------- */
@@ -430,7 +491,7 @@ function cleanRecipe(x,meal){
     ingredients:x.ingredients.filter(i=>i&&i.item).slice(0,40).map(i=>({qty:(typeof i.qty==="number"&&isFinite(i.qty))?i.qty:(isFinite(parseFloat(i.qty))?parseFloat(i.qty):null),
       unit:String(i.unit||"").slice(0,20),item:String(i.item).toLowerCase().slice(0,80),note:String(i.note||"").slice(0,80),
       category:CATS.includes(i.category)?i.category:"Other",group:String(i.group||"").slice(0,40)})),
-    steps:x.steps.map(s=>String(s).slice(0,400)).filter(Boolean).slice(0,12),tip:String(x.tip||"").slice(0,300),source:"ai",createdAt:Date.now()};
+    steps:x.steps.map(s=>String(s).slice(0,400)).filter(Boolean).slice(0,12),tip:String(x.tip||"").slice(0,300),source:"ai",createdAt:Date.now(),calories:x.calories??null,prep:Array.isArray(x.prep)?x.prep:[]};
 }
 async function genRecipes(meal,n,opts={}){
   const out=[];const avoid=Object.values(S.recipes).map(r=>r.title);
@@ -505,6 +566,97 @@ function fillLib(dates){
   if(filled)changeWithUndo(ch,`Filled ${filled} meal${filled>1?"s":""} from your recipes`+extra);
   else toast(missing.size?"Add some recipes first, or use Fill with AI":"Every planned meal is already filled");
 }
+async function enrichRecipes(){
+  const total=Object.values(S.recipes).filter(r=>r.calories==null||r.prep==null).length;
+  abortCtl=new AbortController();let done=0;
+  try{
+    while(done<total){
+      busy(true,`Checking your recipes… (${done}/${total})`);
+      const r=await fetch("/api/ai/enrich",{method:"POST",signal:abortCtl.signal});
+      if(r.status===401){location.href="/signin";return}
+      const j=await r.json().catch(()=>({}));
+      if(!r.ok){const e=new Error(j.error||"AI request failed");e.code=j.code||("http_"+r.status);throw e}
+      if(!j.updated?.length)break;
+      for(const u of j.updated)if(S.recipes[u.id]){S.recipes[u.id].calories=u.calories;S.recipes[u.id].prep=u.prep}
+      done+=j.updated.length;
+    }
+    toast(done?`Updated ${done} recipe${done>1?"s":""}`:"Couldn't update your recipes – try again");
+  }catch(e){aiError(e)}finally{busy(false);abortCtl=null;render()}
+}
+/* ---------- notifications ---------- */
+function isIos(){return /iphone|ipad|ipod/i.test(navigator.userAgent)||(navigator.platform==="MacIntel"&&navigator.maxTouchPoints>1)}
+function isStandalone(){return window.matchMedia("(display-mode: standalone)").matches||navigator.standalone===true}
+function pushKeyBytes(){const s=S.pushKey.replace(/-/g,"+").replace(/_/g,"/");const raw=atob(s+"=".repeat((4-s.length%4)%4));return Uint8Array.from(raw,c=>c.charCodeAt(0))}
+async function currentSub(){
+  if(!("serviceWorker" in navigator))return null;
+  const reg=await navigator.serviceWorker.getRegistration();
+  return reg?reg.pushManager.getSubscription():null;
+}
+async function refreshPush(){
+  const supported="serviceWorker" in navigator&&"PushManager" in window&&"Notification" in window;
+  if(!S.pushKey)ui.push="unconfigured";
+  else if(!supported)ui.push=isIos()&&!isStandalone()?"ios-install":"unsupported";
+  else if(Notification.permission==="denied")ui.push="denied";
+  else{try{ui.push=(await currentSub())?"on":"off"}catch(e){console.error(e);ui.push="off"}}
+  if(ui.tab==="settings")softRender();
+}
+async function pushOn(){
+  try{
+    if(await Notification.requestPermission()!=="granted"){await refreshPush();render();toast("Notifications weren't allowed");return}
+    await navigator.serviceWorker.register("/sw.js");
+    const reg=await navigator.serviceWorker.ready;
+    const sub=await reg.pushManager.subscribe({userVisibleOnly:true,applicationServerKey:pushKeyBytes()});
+    const ok=await api("POST","/api/push",{subscription:sub.toJSON(),timezone:Intl.DateTimeFormat().resolvedOptions().timeZone});
+    if(!ok){await sub.unsubscribe();return}
+    ui.push="on";render();toast("Notifications are on");
+  }catch(e){console.error(e);toast("Couldn't turn on notifications")}
+}
+async function pushOff(){
+  try{
+    const sub=await currentSub();
+    if(sub){await api("DELETE","/api/push",{endpoint:sub.endpoint});await sub.unsubscribe()}
+    ui.push="off";render();toast("Notifications are off");
+  }catch(e){console.error(e);toast("Couldn't turn off notifications")}
+}
+async function signOutHere(){
+  // This device shouldn't keep getting reminders, or keep personal data, once signed out
+  try{
+    const sub=await currentSub();
+    if(sub){await api("DELETE","/api/push",{endpoint:sub.endpoint});await sub.unsubscribe()}
+    if(window.caches)for(const k of await caches.keys())if(k.startsWith("tiffin-pages"))await caches.delete(k);
+  }catch(e){console.error(e)}
+  signOut({callbackUrl:"/signin"});
+}
+/* ---------- install ---------- */
+const INSTALL_SNOOZE="tiffin-install-snoozed";
+function installStatus(){
+  if(isStandalone())return null;
+  if(window.__tiffinInstallPrompt)return "prompt";
+  return isIos()?"ios":null;
+}
+function renderInstallBar(){
+  const el=document.getElementById("installbar"),status=installStatus();
+  const snoozed=Number(localStorage.getItem(INSTALL_SNOOZE)||0)>Date.now();
+  if(!status||snoozed){el.innerHTML="";return}
+  el.innerHTML=`<div class="installbar"><img src="/icons/logo.svg" alt="" width="36" height="36"><span>${status==="ios"?"Install Tiffin: tap Share in Safari, then Add to Home Screen.":"Install Tiffin for quick access and prep reminders."}</span>${status==="prompt"?'<button type="button" class="btn" data-install="go">Install</button>':""}<button type="button" class="btn quiet" data-install="later">Not now</button></div>`;
+}
+async function installApp(){
+  const p=window.__tiffinInstallPrompt;if(!p)return;
+  p.prompt();
+  const choice=await p.userChoice.catch(()=>null);
+  window.__tiffinInstallPrompt=null;
+  renderInstallBar();if(ui.tab==="settings")softRender();
+  if(choice&&choice.outcome==="accepted")toast("Tiffin is installed");
+}
+document.getElementById("installbar").addEventListener("click",e=>{
+  const a=e.target.closest("[data-install]");if(!a)return;
+  if(a.dataset.install==="go")installApp();
+  else{localStorage.setItem(INSTALL_SNOOZE,String(Date.now()+30*864e5));renderInstallBar()}
+});
+window.addEventListener("tiffin-install-ready",()=>{renderInstallBar();if(ui.tab==="settings")softRender()});
+window.addEventListener("appinstalled",()=>{window.__tiffinInstallPrompt=null;renderInstallBar()});
+window.addEventListener("online",()=>loadState());
+window.addEventListener("offline",()=>loadState());
 function scopeDates(){return ui.mode==="week"?weekDates(ui.anchor):monthDates(ui.anchor)}
 
 /* ---------- events ---------- */
@@ -557,7 +709,13 @@ main.addEventListener("click",e=>{
       for(const [d,sl] of Object.entries(S.days))for(const [m,rid] of Object.entries(sl))if(rid===id){delete sl[m];if(!Object.keys(sl).length)delete S.days[d]}
       render();toast("Recipe deleted");break}
     case "ai-create": aiCreate(document.getElementById("newdesc").value,document.getElementById("newtype").value);break;
-    case "signout": signOut({callbackUrl:"/signin"});break;
+    case "signout": signOutHere();break;
+    case "enrich": enrichRecipes();break;
+    case "install": installApp();break;
+    case "push-on": pushOn();break;
+    case "push-off": pushOff();break;
+    case "push-test":
+      api("POST","/api/push/test").then(j=>{if(j)toast(j.sent?"Test sent":"No device received it – try turning notifications off and on")});break;
     case "save-profile":{
       const v=id=>document.getElementById(id)?.value||"";
       const body={name:v("p-name").trim(),email:v("p-email").trim()};
@@ -606,6 +764,7 @@ function goToday(){
   const i=st.meals.indexOf(want);ui.meal=i>=0?i:0;
 }
 route();
+renderInstallBar();
 loadState();
 // Pick up changes made on another device when you come back to the tab
 document.addEventListener("visibilitychange",()=>{

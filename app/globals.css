@@ -7,12 +7,18 @@ button,input,select,textarea{font:inherit;color:inherit}
 .tabs,.seg,.daytabs{scrollbar-width:none}
 header{padding:28px 20px 6px;max-width:980px;margin:0 auto}
 h1{font-family:Fraunces,Georgia,serif;font-size:clamp(26px,5vw,38px);margin:0;color:var(--green)}
+.brand{display:flex;align-items:center;gap:10px}
+.brand img{flex:none;border-radius:9px}
 .sub{color:var(--muted);margin:2px 0 0;font-size:14px}
 nav{position:sticky;top:0;z-index:5;background:var(--bg);border-bottom:1px solid var(--line)}
 .tabs{max-width:980px;margin:0 auto;display:flex;gap:6px;padding:10px 20px;overflow-x:auto}
 .tabs a{flex:0 0 auto;display:flex;align-items:center;gap:7px;text-decoration:none;color:var(--ink);padding:8px 15px;border-radius:999px;font-weight:600;font-size:14px;background:var(--card);border:1px solid var(--line)}
 .tabs a.on{background:var(--green);color:#fff;border-color:var(--green)}
 main{max-width:980px;margin:0 auto;padding:18px 20px 80px}
+#installbar{max-width:980px;margin:0 auto;padding:0 20px}
+.installbar{display:flex;flex-wrap:wrap;align-items:center;gap:10px;margin-top:12px;background:var(--card);border:1px solid var(--line);border-radius:12px;padding:10px 12px;font-size:14px}
+.installbar span{flex:1 1 200px}
+.installbar img{border-radius:8px}
 #banner{max-width:980px;margin:0 auto;padding:0 20px}
 #banner div{margin-top:12px;background:#fff7e6;border:1px solid #f0dcb0;padding:10px 14px;border-radius:10px;font-size:14px}
 h2{font-family:Fraunces,Georgia,serif;margin:0;font-size:26px}
@@ -50,12 +56,14 @@ h2{font-family:Fraunces,Georgia,serif;margin:0;font-size:26px}
 .pips i.f{background:var(--green);border-color:var(--green)}
 .daytabs button.on .pips i{border-color:#d9e7d6}
 .daytabs button.on .pips i.f{background:#fff;border-color:#fff}
-.dayh{font-size:20px;margin:0 0 10px;display:flex;align-items:center;gap:8px}
+.dayh{font-size:20px;margin:0 0 10px;display:flex;flex-wrap:wrap;align-items:center;gap:8px}
+.daykcal{margin-left:auto;font-family:Inter,system-ui,sans-serif;font-size:13px;font-weight:600;color:var(--muted)}
 .mealcard{background:var(--card);border-radius:14px;margin-bottom:10px;box-shadow:0 1px 6px rgba(0,0,0,.05)}
 .mealhead{width:100%;display:flex;align-items:center;gap:12px;background:none;border:none;border-radius:14px;padding:14px 16px;cursor:pointer;text-align:left}
 .mealhead:hover .mealtitle{color:var(--green)}
 .mealname{flex:0 0 78px;font-size:11px;font-weight:600;letter-spacing:.08em;text-transform:uppercase;color:var(--accent)}
 .mealtitle{flex:1;min-width:0;font-family:Fraunces,Georgia,serif;font-weight:600;font-size:17px;line-height:1.3}
+.mealsub{display:block;margin-top:2px;font-family:Inter,system-ui,sans-serif;font-size:12px;font-weight:500;color:var(--muted)}
 .mealtitle.none{font-family:inherit;font-weight:500;font-size:14px;color:var(--muted)}
 .chev{flex:none;color:var(--muted);font-size:20px;line-height:1;transition:transform .15s}
 .mealcard.open .chev{transform:rotate(90deg)}
@@ -72,6 +80,9 @@ ul.ing li{padding:6px 0;border-bottom:1px dashed var(--line)}
 ul.ing li.subhead{font-weight:600;font-size:13px;color:var(--muted);border:none;padding-top:12px}
 ol.steps{margin:0;padding-left:20px}
 ol.steps li{margin-bottom:8px}
+.prepbox{background:#fbf4ea;border-radius:10px;padding:10px 13px;margin-bottom:14px}
+.prepbox ul{list-style:none;margin:0;padding:0}
+.prepbox li{padding:2px 0}
 .tip{margin-top:12px;background:#fbf4ea;border-left:3px solid var(--accent);padding:9px 13px;border-radius:8px;font-size:14px}
 .warnbox{background:var(--warn-soft);color:var(--warn);padding:8px 12px;border-radius:8px;font-size:14px;margin-bottom:10px}
 .slotact{display:grid;gap:12px;margin-top:16px;padding-top:14px;border-top:1px solid var(--line);justify-items:start}
@@ -82,7 +93,7 @@ ol.steps li{margin-bottom:8px}
 .field input,.field select{color:var(--ink);font-weight:400}
 .aiform{display:flex;gap:8px;align-items:flex-end;flex-wrap:wrap}
 .aiform .field{flex:1 1 220px}
-select,input[type=text],input[type=number],input[type=date],input[type=email],input[type=password],input[type=search],textarea{border:1px solid #d9d3c5;background:#fff;border-radius:10px;padding:9px 11px;font-size:14px;width:100%}
+select,input[type=text],input[type=number],input[type=date],input[type=time],input[type=email],input[type=password],input[type=search],textarea{border:1px solid #d9d3c5;background:#fff;border-radius:10px;padding:9px 11px;font-size:14px;width:100%}
 textarea{min-height:80px;resize:vertical}
 .empty{text-align:center;color:var(--muted);padding:26px 10px}
 .empty b{display:block;color:var(--ink);font-size:17px;margin-bottom:4px}
@@ -128,6 +139,8 @@ textarea{min-height:80px;resize:vertical}
 .form h3{margin:0 0 4px;font-size:19px}
 .form label{display:block;font-weight:600;font-size:14px;margin:14px 0 6px}
 .form .help{font-size:13px;color:var(--muted);margin:-2px 0 6px}
+.timegrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(130px,1fr));gap:10px}
+.form .timegrid label{margin:0}
 .checks{display:flex;flex-wrap:wrap;gap:8px}
 .checks label{display:flex;align-items:center;gap:6px;font-weight:500;margin:0;background:#fff;border:1px solid var(--line);padding:6px 11px;border-radius:999px;cursor:pointer}
 .checks label:has(input:checked){background:var(--green-soft);border-color:var(--green)}
@@ -151,7 +164,7 @@ textarea{min-height:80px;resize:vertical}
 .muted{color:var(--muted);font-size:13px}
 .signin{min-height:100vh;max-width:none;display:flex;align-items:center;justify-content:center;padding:20px}
 .signin .card{max-width:380px;width:100%;padding:32px 26px;margin:0}
-.signin h1{margin-bottom:6px;text-align:center}
+.signin h1{margin-bottom:6px;justify-content:center}
 .signin form>.muted{text-align:center;margin:0 0 6px}
 .signin .btn{width:100%;padding:12px;margin-top:18px}
 .signin .field{margin-top:12px}
@@ -174,7 +187,7 @@ textarea{min-height:80px;resize:vertical}
   .tabs{display:grid;grid-template-columns:repeat(4,1fr);gap:0;padding:4px}
   .tabs a{flex-direction:column;gap:2px;padding:7px 2px;font-size:11px;background:none;border:none;border-radius:10px;color:var(--muted)}
   .tabs a.on{background:var(--green-soft);color:var(--green)}
-  select,input[type=text],input[type=number],input[type=date],input[type=email],input[type=password],input[type=search],textarea{font-size:16px}
+  select,input[type=text],input[type=number],input[type=date],input[type=time],input[type=email],input[type=password],input[type=search],textarea{font-size:16px}
   .icon{width:44px;height:44px}
   .navdate{width:100%;justify-content:space-between}
   .navdate .lbl{min-width:0;flex:1;font-size:14px}

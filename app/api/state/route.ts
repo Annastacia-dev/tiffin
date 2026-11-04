@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { currentUser } from "@/lib/auth";
+import { pushConfigured } from "@/lib/push";
 import { supabase } from "@/lib/supabase";
 import { DEFAULT_SETTINGS, rowToRecipe } from "@/lib/types";
 
@@ -30,6 +31,7 @@ export async function GET() {
     days,
     settings: { ...DEFAULT_SETTINGS, ...(settings.data?.data || {}) },
     checks: Object.fromEntries((checks.data || []).map((c) => [c.key, true])),
+    push: { publicKey: pushConfigured() ? process.env.VAPID_PUBLIC_KEY : null },
     profile: { name: user.name, email: user.email, hasPassword: !!account.data?.password_hash },
   });
 }

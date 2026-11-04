@@ -21,7 +21,13 @@ export type Recipe = {
   tip: string;
   source: string;
   createdAt?: number;
+  /** Estimated calories per portion. Null until worked out. */
+  calories: number | null;
+  /** Steps to start ahead of cooking. Null until checked, empty if none. */
+  prep: PrepStep[] | null;
 };
+
+export type PrepStep = { task: string; hoursBefore: number };
 
 export type Settings = {
   exclusions: string[];
@@ -32,6 +38,13 @@ export type Settings = {
   meals: string[];
   days: number[];
   lunchPortions: number;
+  showCalories: boolean;
+  /** What time each meal gets cooked, "HH:MM" */
+  mealTimes: Record<string, string>;
+  reminders: { prep: boolean; cook: boolean };
+  quietStart: string;
+  quietEnd: string;
+  timezone: string;
 };
 
 export const DEFAULT_SETTINGS: Settings = {
@@ -43,7 +56,41 @@ export const DEFAULT_SETTINGS: Settings = {
   meals: ["Breakfast", "Lunch", "Snack"],
   days: [0, 1, 2, 3, 4],
   lunchPortions: 3,
+  showCalories: false,
+  mealTimes: { Breakfast: "07:00", Lunch: "12:30", Dinner: "19:00", Snack: "15:30" },
+  reminders: { prep: true, cook: false },
+  quietStart: "22:00",
+  quietEnd: "07:00",
+  timezone: "Africa/Nairobi",
 };
+
+export function validTime(v: unknown): v is string {
+  return typeof v === "string" && /^([01]\d|2[0-3]):[0-5]\d$/.test(v);
+}
+
+export function validTimeZone(v: unknown): v is string {
+  if (typeof v !== "string" || !v) return false;
+  try {
+    new Intl.DateTimeFormat("en-US", { timeZone: v });
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+export function cleanCalories(v: unknown): number | null {
+  const n = typeof v === "number" ? v : parseFloat(String(v));
+  return isFinite(n) && n > 0 && n <= 5000 ? Math.round(n) : null;
+}
+
+/** Keeps steps with a sensible lead time. Returns null when there's no list at all, meaning "not checked yet". */
+export function cleanPrep(v: unknown): PrepStep[] | null {
+  if (!Array.isArray(v)) return null;
+  return v
+    .map((s: any) => ({ task: String(s?.task || "").trim().slice(0, 120), hoursBefore: Number(s?.hoursBefore) }))
+    .filter((s) => s.task && isFinite(s.hoursBefore) && s.hoursBefore >= 0.5 && s.hoursBefore <= 96)
+    .slice(0, 5);
+}
 
 /** DB row <-> Recipe */
 export function rowToRecipe(r: any): Recipe {
@@ -58,6 +105,8 @@ export function rowToRecipe(r: any): Recipe {
     tip: r.tip || "",
     source: r.source || "",
     createdAt: r.created_at ? Date.parse(r.created_at) : undefined,
+    calories: r.calories ?? null,
+    prep: r.prep ?? null,
   };
 }
 
@@ -73,6 +122,8 @@ export function recipeToRow(userId: string, r: Recipe) {
     steps: r.steps || [],
     tip: r.tip || "",
     source: r.source || "",
+    calories: r.calories ?? null,
+    prep: r.prep ?? null,
   };
 }
 
@@ -100,5 +151,7 @@ export function cleanRecipe(x: any, meal?: string): Recipe | null {
     steps: x.steps.map((s: any) => String(s).slice(0, 400)).filter(Boolean).slice(0, 12),
     tip: String(x.tip || "").slice(0, 300),
     source: String(x.source || "").slice(0, 20),
+    calories: cleanCalories(x.calories),
+    prep: cleanPrep(x.prep),
   };
 }

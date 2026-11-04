@@ -73,6 +73,35 @@ npm run db:baseline
 npm run db:deploy
 ```
 
+## Install as an app
+
+Tiffin is a PWA, so browsers offer to install it, and it shows an install prompt of its own. On iPhone and iPad, use **Share → Add to Home Screen** in Safari. Once it's been opened online, your last saved plan and shopping list can be read offline. Changes need a connection.
+
+To change the logo, edit `public/icons/logo.svg` and re-export the PNGs in that folder at the same sizes. Copy the SVG to `app/icon.svg` too, which is the favicon.
+
+## Prep reminders
+
+Set your cook times under **Settings → Cook times & reminders**. Tiffin counts back from them, using each recipe's prep steps. If a reminder would land in your quiet hours, it comes 30 minutes before they start instead. So a chia soak for a 07:00 breakfast reminds you the evening before.
+
+New AI recipes get calories and prep steps automatically. For recipes you already have, use **Add them with AI** on the same page.
+
+Notifications need three things:
+
+1. **Keys.** Run `npx web-push generate-vapid-keys`, then set `VAPID_PUBLIC_KEY`, `VAPID_PRIVATE_KEY`, `VAPID_SUBJECT` and `CRON_SECRET`.
+2. **A scheduler** that calls `/api/cron/reminders` every 15 minutes. Vercel's free plan only runs cron jobs daily, so use Supabase: enable the `pg_cron` and `pg_net` extensions, then run this in the SQL editor with your own URL and secret:
+
+   ```sql
+   select cron.schedule('tiffin-reminders', '*/15 * * * *', $$
+     select net.http_post(
+       url := 'https://your-site.example/api/cron/reminders',
+       headers := jsonb_build_object('Authorization', 'Bearer YOUR_CRON_SECRET'),
+       timeout_milliseconds := 30000
+     )
+   $$);
+   ```
+
+3. **Your permission on each device.** Choose **Turn on notifications** in Settings, then **Send a test**. On iPhone and iPad this only works after installing to the Home Screen (iOS 16.4 or later).
+
 ## 5. Deploy (Vercel)
 
 1. Push this folder to a GitHub repo.
@@ -99,6 +128,11 @@ app/api/recipes    POST recipes, DELETE /api/recipes/:id
 app/api/settings   PUT settings
 app/api/checks     PUT shopping-list ticks
 app/api/ai         POST: builds the prompt from your settings and calls Claude
+app/api/ai/enrich  POST: adds calories and prep steps to saved recipes
+app/api/push       POST/DELETE this device's notifications, POST /test
+app/api/cron       reminders: called by the scheduler
+lib/reminders.ts   works out when reminders are due
+public/sw.js       service worker: offline reading and push
 components/        Planner UI (planner-app.js does the rendering)
 prisma/             database schema and migrations
 scripts/import.mjs + data/export.json   your data from the Claude version

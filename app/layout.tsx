@@ -1,9 +1,13 @@
 import type { Metadata, Viewport } from "next";
+import PwaSetup from "@/components/PwaSetup";
 import "./globals.css";
 
 export const metadata: Metadata = {
   title: "Tiffin",
   description: "Tiffin – plan packed, gut-friendly meals, with AI recipes and a shopping list",
+  applicationName: "Tiffin",
+  appleWebApp: { capable: true, title: "Tiffin", statusBarStyle: "default" },
+  icons: { apple: "/icons/apple-touch-icon.png" },
 };
 
 export const viewport: Viewport = { width: "device-width", initialScale: 1, themeColor: "#f6f3ec" };
@@ -18,7 +22,10 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
           rel="stylesheet"
         />
       </head>
-      <body>{children}</body>
+      <body>
+        <PwaSetup />
+        {children}
+      </body>
     </html>
   );
 }

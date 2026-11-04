@@ -12,10 +12,11 @@ export default function Planner({ name }: { name: string }) {
   return (
     <>
       <header>
-        <h1>Tiffin</h1>
+        <h1 className="brand"><img src="/icons/logo.svg" alt="" width={34} height={34} />Tiffin</h1>
         {name && <p className="sub">Hi {name} – here's what's in your lunchbox.</p>}
       </header>
       <nav aria-label="Main"><div className="tabs" id="nav" /></nav>
+      <div id="installbar" />
       <div id="banner" role="status" />
       <main id="main"><p className="muted">Loading your plan…</p></main>
       <div id="toast" role="status" aria-live="polite" />

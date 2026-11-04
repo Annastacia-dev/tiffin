@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { requireUser } from "@/lib/auth";
 import { supabase } from "@/lib/supabase";
-import { DEFAULT_SETTINGS, MEAL_TYPES, Settings } from "@/lib/types";
+import { DEFAULT_SETTINGS, MEAL_TYPES, Settings, validTime, validTimeZone } from "@/lib/types";
 
 export async function PUT(req: Request) {
   const uid = await requireUser();
@@ -17,6 +17,12 @@ export async function PUT(req: Request) {
     meals: list(b.meals).filter((m) => (MEAL_TYPES as readonly string[]).includes(m)),
     days: Array.isArray(b.days) ? b.days.map(Number).filter((d: number) => d >= 0 && d <= 6) : DEFAULT_SETTINGS.days,
     lunchPortions: Math.max(1, Math.min(8, Number(b.lunchPortions) || 3)),
+    showCalories: !!b.showCalories,
+    mealTimes: Object.fromEntries(MEAL_TYPES.map((m) => [m, validTime(b.mealTimes?.[m]) ? b.mealTimes[m] : DEFAULT_SETTINGS.mealTimes[m]])),
+    reminders: b.reminders ? { prep: !!b.reminders.prep, cook: !!b.reminders.cook } : DEFAULT_SETTINGS.reminders,
+    quietStart: validTime(b.quietStart) ? b.quietStart : DEFAULT_SETTINGS.quietStart,
+    quietEnd: validTime(b.quietEnd) ? b.quietEnd : DEFAULT_SETTINGS.quietEnd,
+    timezone: validTimeZone(b.timezone) ? b.timezone : DEFAULT_SETTINGS.timezone,
   };
   if (!s.meals.length) s.meals = DEFAULT_SETTINGS.meals;
   if (!s.days.length) s.days = DEFAULT_SETTINGS.days;
