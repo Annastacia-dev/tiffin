@@ -1,0 +1,1158 @@
+{
+ "recipes": {
+  "s-bircher": {
+   "title": "Bircher Muesli",
+   "mealType": "Breakfast",
+   "cuisine": "Swiss",
+   "servings": "1 portion",
+   "ingredients": [
+    {
+     "qty": 0.5,
+     "unit": "cup",
+     "item": "oats",
+     "note": "",
+     "category": "Grains & bread",
+     "group": ""
+    },
+    {
+     "qty": 0.5,
+     "unit": "cup",
+     "item": "maziwa mala",
+     "note": "",
+     "category": "Dairy",
+     "group": ""
+    },
+    {
+     "qty": 0.25,
+     "unit": "cup",
+     "item": "water",
+     "note": "",
+     "category": "Pantry",
+     "group": ""
+    },
+    {
+     "qty": 0.5,
+     "unit": "pc",
+     "item": "apple",
+     "note": "grated",
+     "category": "Fruit",
+     "group": ""
+    },
+    {
+     "qty": 1,
+     "unit": "tbsp",
+     "item": "raisins",
+     "note": "",
+     "category": "Nuts & seeds",
+     "group": ""
+    },
+    {
+     "qty": 1,
+     "unit": "tbsp",
+     "item": "flaxseed",
+     "note": "",
+     "category": "Nuts & seeds",
+     "group": ""
+    },
+    {
+     "qty": null,
+     "unit": "pinch",
+     "item": "cinnamon",
+     "note": "",
+     "category": "Pantry",
+     "group": ""
+    },
+    {
+     "qty": 1,
+     "unit": "pc",
+     "item": "banana",
+     "note": "to top",
+     "category": "Fruit",
+     "group": ""
+    }
+   ],
+   "steps": [
+    "Mix oats, mala, water, apple, raisins, flaxseed and cinnamon in a jar.",
+    "Cover and refrigerate overnight.",
+    "In the morning, top with sliced banana and pack."
+   ],
+   "tip": "",
+   "source": "starter",
+   "createdAt": 1793750000000
+  },
+  "s-shakshuka": {
+   "title": "Shakshuka Egg Muffins",
+   "mealType": "Breakfast",
+   "cuisine": "Middle Eastern",
+   "servings": "Makes 6 · eat 2–3",
+   "ingredients": [
+    {
+     "qty": 6,
+     "unit": "pc",
+     "item": "egg",
+     "note": "",
+     "category": "Proteins",
+     "group": ""
+    },
+    {
+     "qty": 1,
+     "unit": "pc",
+     "item": "tomato",
+     "note": "chopped",
+     "category": "Vegetables",
+     "group": ""
+    },
+    {
+     "qty": 0.5,
+     "unit": "pc",
+     "item": "capsicum",
+     "note": "chopped",
+     "category": "Vegetables",
+     "group": ""
+    },
+    {
+     "qty": 0.5,
+     "unit": "pc",
+     "item": "onion",
+     "note": "chopped",
+     "category": "Vegetables",
+     "group": ""
+    },
+    {
+     "qty": 1,
+     "unit": "handful",
+     "item": "spinach",
+     "note": "",
+     "category": "Vegetables",
+     "group": ""
+    },
+    {
+     "qty": 0.5,
+     "unit": "tsp",
+     "item": "paprika",
+     "note": "",
+     "category": "Pantry",
+     "group": ""
+    },
+    {
+     "qty": 0.5,
+     "unit": "tsp",
+     "item": "cumin",
+     "note": "",
+     "category": "Pantry",
+     "group": ""
+    },
+    {
+     "qty": null,
+     "unit": "",
+     "item": "salt",
+     "note": "",
+     "category": "Pantry",
+     "group": ""
+    },
+    {
+     "qty": 1,
+     "unit": "tsp",
+     "item": "cooking oil",
+     "note": "",
+     "category": "Pantry",
+     "group": ""
+    }
+   ],
+   "steps": [
+    "Fry onion, capsicum and tomato in a little oil for 5 min; stir in spinach and spices.",
+    "Divide veg into a greased muffin tin and pour beaten eggs over.",
+    "Bake at 180°C for 18–20 min.",
+    "Eat 2–3 now; keep the rest as snacks for up to 4 days in the fridge."
+   ],
+   "tip": "No oven? Pour everything into a frying pan, cover and cook on low 10–12 min, then cut into wedges.",
+   "source": "starter",
+   "createdAt": 1793750000000
+  },
+  "s-oats-mango": {
+   "title": "Mango Overnight Oats",
+   "mealType": "Breakfast",
+   "cuisine": "",
+   "servings": "1 portion",
+   "ingredients": [
+    {
+     "qty": 0.5,
+     "unit": "cup",
+     "item": "oats",
+     "note": "",
+     "category": "Grains & bread",
+     "group": ""
+    },
+    {
+     "qty": 0.5,
+     "unit": "cup",
+     "item": "maziwa mala",
+     "note": "",
+     "category": "Dairy",
+     "group": ""
+    },
+    {
+     "qty": 1,
+     "unit": "tbsp",
+     "item": "chia seeds",
+     "note": "",
+     "category": "Nuts & seeds",
+     "group": ""
+    },
+    {
+     "qty": 0.5,
+     "unit": "tsp",
+     "item": "cinnamon",
+     "note": "",
+     "category": "Pantry",
+     "group": ""
+    },
+    {
+     "qty": 0.5,
+     "unit": "pc",
+     "item": "mango",
+     "note": "diced",
+     "category": "Fruit",
+     "group": ""
+    }
+   ],
+   "steps": [
+    "Mix oats, mala, chia and cinnamon in a jar.",
+    "Refrigerate overnight.",
+    "Add mango on top in the morning."
+   ],
+   "tip": "",
+   "source": "starter",
+   "createdAt": 1793750000000
+  },
+  "s-pbtoast": {
+   "title": "Peanut Butter Banana Toast",
+   "mealType": "Breakfast",
+   "cuisine": "",
+   "servings": "1 portion",
+   "ingredients": [
+    {
+     "qty": 2,
+     "unit": "slice",
+     "item": "wholemeal bread",
+     "note": "",
+     "category": "Grains & bread",
+     "group": ""
+    },
+    {
+     "qty": 1.5,
+     "unit": "tbsp",
+     "item": "peanut butter",
+     "note": "",
+     "category": "Nuts & seeds",
+     "group": ""
+    },
+    {
+     "qty": 1,
+     "unit": "pc",
+     "item": "banana",
+     "note": "",
+     "category": "Fruit",
+     "group": ""
+    },
+    {
+     "qty": 1,
+     "unit": "tsp",
+     "item": "chia seeds",
+     "note": "",
+     "category": "Nuts & seeds",
+     "group": ""
+    }
+   ],
+   "steps": [
+    "Toast the bread, or pack it untoasted.",
+    "Pack bread, peanut butter and banana separately.",
+    "Assemble at work and sprinkle with chia."
+   ],
+   "tip": "",
+   "source": "starter",
+   "createdAt": 1793750000000
+  },
+  "s-smoothie": {
+   "title": "Green Smoothie Jar",
+   "mealType": "Breakfast",
+   "cuisine": "",
+   "servings": "1 portion",
+   "ingredients": [
+    {
+     "qty": 1,
+     "unit": "pc",
+     "item": "banana",
+     "note": "",
+     "category": "Fruit",
+     "group": ""
+    },
+    {
+     "qty": 3,
+     "unit": "tbsp",
+     "item": "oats",
+     "note": "",
+     "category": "Grains & bread",
+     "group": ""
+    },
+    {
+     "qty": 0.5,
+     "unit": "cup",
+     "item": "maziwa mala",
+     "note": "",
+     "category": "Dairy",
+     "group": ""
+    },
+    {
+     "qty": 1,
+     "unit": "handful",
+     "item": "spinach",
+     "note": "",
+     "category": "Vegetables",
+     "group": ""
+    },
+    {
+     "qty": 1,
+     "unit": "tbsp",
+     "item": "peanut butter",
+     "note": "",
+     "category": "Nuts & seeds",
+     "group": ""
+    },
+    {
+     "qty": 0.25,
+     "unit": "cup",
+     "item": "water",
+     "note": "",
+     "category": "Pantry",
+     "group": ""
+    }
+   ],
+   "steps": [
+    "Blend everything until smooth.",
+    "Pour into a jar; shake before drinking.",
+    "Keeps about 24 hours in the fridge."
+   ],
+   "tip": "",
+   "source": "starter",
+   "createdAt": 1793750000000
+  },
+  "s-teriyaki": {
+   "title": "Chicken Teriyaki Bowl",
+   "mealType": "Lunch",
+   "cuisine": "Japanese",
+   "servings": "2–3 portions",
+   "ingredients": [
+    {
+     "qty": 450,
+     "unit": "g",
+     "item": "chicken thigh",
+     "note": "boneless, cubed",
+     "category": "Proteins",
+     "group": ""
+    },
+    {
+     "qty": 1,
+     "unit": "cup",
+     "item": "brown rice",
+     "note": "dry",
+     "category": "Grains & bread",
+     "group": ""
+    },
+    {
+     "qty": 1,
+     "unit": "head",
+     "item": "broccoli",
+     "note": "in florets",
+     "category": "Vegetables",
+     "group": ""
+    },
+    {
+     "qty": 2,
+     "unit": "pc",
+     "item": "carrot",
+     "note": "sliced",
+     "category": "Vegetables",
+     "group": ""
+    },
+    {
+     "qty": 0.25,
+     "unit": "pc",
+     "item": "cabbage",
+     "note": "shredded",
+     "category": "Vegetables",
+     "group": ""
+    },
+    {
+     "qty": 1,
+     "unit": "tbsp",
+     "item": "sesame seeds",
+     "note": "",
+     "category": "Nuts & seeds",
+     "group": ""
+    },
+    {
+     "qty": 1,
+     "unit": "tbsp",
+     "item": "cooking oil",
+     "note": "",
+     "category": "Pantry",
+     "group": ""
+    },
+    {
+     "qty": 3,
+     "unit": "tbsp",
+     "item": "soy sauce",
+     "note": "",
+     "category": "Pantry",
+     "group": "Sauce"
+    },
+    {
+     "qty": 1.5,
+     "unit": "tbsp",
+     "item": "honey",
+     "note": "",
+     "category": "Pantry",
+     "group": "Sauce"
+    },
+    {
+     "qty": 2,
+     "unit": "clove",
+     "item": "garlic",
+     "note": "grated",
+     "category": "Vegetables",
+     "group": "Sauce"
+    },
+    {
+     "qty": 1,
+     "unit": "tsp",
+     "item": "ginger",
+     "note": "grated",
+     "category": "Vegetables",
+     "group": "Sauce"
+    },
+    {
+     "qty": 2,
+     "unit": "tbsp",
+     "item": "water",
+     "note": "",
+     "category": "Pantry",
+     "group": "Sauce"
+    }
+   ],
+   "steps": [
+    "Rinse 1 cup brown rice, add 2 cups water and a pinch of salt; boil, cover and simmer on low 35–40 min.",
+    "Mix the sauce ingredients in a bowl.",
+    "Fry chicken in a little oil 6–8 min until cooked through.",
+    "Pour in the sauce and simmer 2–3 min until sticky.",
+    "In another pan, stir-fry broccoli, carrots and cabbage 3–4 min – keep them crunchy.",
+    "Divide rice, chicken and veg into containers; sprinkle with sesame."
+   ],
+   "tip": "Cook on Sunday along with Tuesday's mince.",
+   "source": "starter",
+   "createdAt": 1793750000000
+  },
+  "s-burrito": {
+   "title": "Beef Burrito Bowl",
+   "mealType": "Lunch",
+   "cuisine": "Mexican",
+   "servings": "2–3 portions",
+   "ingredients": [
+    {
+     "qty": 500,
+     "unit": "g",
+     "item": "beef mince",
+     "note": "",
+     "category": "Proteins",
+     "group": ""
+    },
+    {
+     "qty": 1,
+     "unit": "cup",
+     "item": "brown rice",
+     "note": "dry",
+     "category": "Grains & bread",
+     "group": ""
+    },
+    {
+     "qty": 1,
+     "unit": "pc",
+     "item": "onion",
+     "note": "chopped",
+     "category": "Vegetables",
+     "group": ""
+    },
+    {
+     "qty": 2,
+     "unit": "clove",
+     "item": "garlic",
+     "note": "",
+     "category": "Vegetables",
+     "group": ""
+    },
+    {
+     "qty": 1,
+     "unit": "tsp",
+     "item": "cumin",
+     "note": "",
+     "category": "Pantry",
+     "group": ""
+    },
+    {
+     "qty": 1,
+     "unit": "tsp",
+     "item": "paprika",
+     "note": "",
+     "category": "Pantry",
+     "group": ""
+    },
+    {
+     "qty": 0.5,
+     "unit": "tsp",
+     "item": "chilli powder",
+     "note": "",
+     "category": "Pantry",
+     "group": ""
+    },
+    {
+     "qty": 1,
+     "unit": "pc",
+     "item": "tomato",
+     "note": "chopped",
+     "category": "Vegetables",
+     "group": ""
+    },
+    {
+     "qty": 1,
+     "unit": "cup",
+     "item": "sweetcorn",
+     "note": "",
+     "category": "Vegetables",
+     "group": ""
+    },
+    {
+     "qty": 0.5,
+     "unit": "head",
+     "item": "lettuce",
+     "note": "shredded",
+     "category": "Vegetables",
+     "group": ""
+    },
+    {
+     "qty": 2,
+     "unit": "pc",
+     "item": "avocado",
+     "note": "",
+     "category": "Fruit",
+     "group": ""
+    },
+    {
+     "qty": null,
+     "unit": "",
+     "item": "salt",
+     "note": "",
+     "category": "Pantry",
+     "group": ""
+    },
+    {
+     "qty": 2,
+     "unit": "pc",
+     "item": "tomato",
+     "note": "diced",
+     "category": "Vegetables",
+     "group": "Salsa"
+    },
+    {
+     "qty": 0.5,
+     "unit": "pc",
+     "item": "onion",
+     "note": "finely chopped",
+     "category": "Vegetables",
+     "group": "Salsa"
+    },
+    {
+     "qty": 1,
+     "unit": "handful",
+     "item": "dhania",
+     "note": "",
+     "category": "Vegetables",
+     "group": "Salsa"
+    },
+    {
+     "qty": 1,
+     "unit": "pc",
+     "item": "lime",
+     "note": "juiced",
+     "category": "Fruit",
+     "group": "Salsa"
+    }
+   ],
+   "steps": [
+    "Cook the brown rice.",
+    "Fry onion until soft, add garlic and mince; brown 8–10 min.",
+    "Add spices, chopped tomato and salt; simmer 5 min, adding sweetcorn for the last 2.",
+    "Mix the salsa ingredients.",
+    "Pack rice, mince, salsa and lettuce.",
+    "Pack avocado whole (or with lime squeezed on) and add at lunch."
+   ],
+   "tip": "",
+   "source": "starter",
+   "createdAt": 1793750000000
+  },
+  "s-shawarma": {
+   "title": "Chicken Shawarma Wraps",
+   "mealType": "Lunch",
+   "cuisine": "Lebanese",
+   "servings": "2–3 portions",
+   "ingredients": [
+    {
+     "qty": 450,
+     "unit": "g",
+     "item": "chicken breast",
+     "note": "in strips",
+     "category": "Proteins",
+     "group": ""
+    },
+    {
+     "qty": 2,
+     "unit": "tbsp",
+     "item": "maziwa mala",
+     "note": "",
+     "category": "Dairy",
+     "group": ""
+    },
+    {
+     "qty": 1,
+     "unit": "tsp",
+     "item": "cumin",
+     "note": "",
+     "category": "Pantry",
+     "group": ""
+    },
+    {
+     "qty": 1,
+     "unit": "tsp",
+     "item": "paprika",
+     "note": "",
+     "category": "Pantry",
+     "group": ""
+    },
+    {
+     "qty": 0.5,
+     "unit": "tsp",
+     "item": "turmeric",
+     "note": "",
+     "category": "Pantry",
+     "group": ""
+    },
+    {
+     "qty": 2,
+     "unit": "clove",
+     "item": "garlic",
+     "note": "",
+     "category": "Vegetables",
+     "group": ""
+    },
+    {
+     "qty": 0.5,
+     "unit": "pc",
+     "item": "lemon",
+     "note": "juiced",
+     "category": "Fruit",
+     "group": ""
+    },
+    {
+     "qty": null,
+     "unit": "",
+     "item": "salt",
+     "note": "",
+     "category": "Pantry",
+     "group": ""
+    },
+    {
+     "qty": 3,
+     "unit": "pc",
+     "item": "wholemeal wrap",
+     "note": "",
+     "category": "Grains & bread",
+     "group": ""
+    },
+    {
+     "qty": 1,
+     "unit": "pc",
+     "item": "cucumber",
+     "note": "sliced",
+     "category": "Vegetables",
+     "group": ""
+    },
+    {
+     "qty": 1,
+     "unit": "pc",
+     "item": "tomato",
+     "note": "sliced",
+     "category": "Vegetables",
+     "group": ""
+    },
+    {
+     "qty": 0.25,
+     "unit": "pc",
+     "item": "red cabbage",
+     "note": "shredded",
+     "category": "Vegetables",
+     "group": ""
+    },
+    {
+     "qty": 0.5,
+     "unit": "cup",
+     "item": "maziwa mala",
+     "note": "strained",
+     "category": "Dairy",
+     "group": "Garlic sauce"
+    },
+    {
+     "qty": 1,
+     "unit": "clove",
+     "item": "garlic",
+     "note": "grated",
+     "category": "Vegetables",
+     "group": "Garlic sauce"
+    },
+    {
+     "qty": null,
+     "unit": "",
+     "item": "lemon juice",
+     "note": "a squeeze",
+     "category": "Pantry",
+     "group": "Garlic sauce"
+    }
+   ],
+   "steps": [
+    "Mix chicken with mala, spices, garlic, lemon and salt. Marinate 30 min or overnight.",
+    "Pan-fry on medium-high 8–10 min until cooked and slightly charred.",
+    "Mix the garlic sauce.",
+    "Pack chicken, veg, wraps and sauce separately.",
+    "Roll the wrap at lunch so it doesn't go soggy."
+   ],
+   "tip": "Strain mala through a cloth-lined sieve 2–4 hours to thicken it for the sauce.",
+   "source": "starter",
+   "createdAt": 1793750000000
+  },
+  "s-fishcurry": {
+   "title": "Coconut Fish Curry",
+   "mealType": "Lunch",
+   "cuisine": "Indian / Swahili",
+   "servings": "2–3 portions",
+   "ingredients": [
+    {
+     "qty": 500,
+     "unit": "g",
+     "item": "tilapia fillet",
+     "note": "in chunks",
+     "category": "Proteins",
+     "group": ""
+    },
+    {
+     "qty": 1,
+     "unit": "cup",
+     "item": "brown rice",
+     "note": "dry",
+     "category": "Grains & bread",
+     "group": ""
+    },
+    {
+     "qty": 1,
+     "unit": "pc",
+     "item": "onion",
+     "note": "chopped",
+     "category": "Vegetables",
+     "group": ""
+    },
+    {
+     "qty": 2,
+     "unit": "clove",
+     "item": "garlic",
+     "note": "",
+     "category": "Vegetables",
+     "group": ""
+    },
+    {
+     "qty": 1,
+     "unit": "tsp",
+     "item": "ginger",
+     "note": "grated",
+     "category": "Vegetables",
+     "group": ""
+    },
+    {
+     "qty": 2,
+     "unit": "pc",
+     "item": "tomato",
+     "note": "chopped",
+     "category": "Vegetables",
+     "group": ""
+    },
+    {
+     "qty": 1,
+     "unit": "tbsp",
+     "item": "curry powder",
+     "note": "",
+     "category": "Pantry",
+     "group": ""
+    },
+    {
+     "qty": 0.5,
+     "unit": "tsp",
+     "item": "turmeric",
+     "note": "",
+     "category": "Pantry",
+     "group": ""
+    },
+    {
+     "qty": 1,
+     "unit": "tin",
+     "item": "coconut milk",
+     "note": "400 ml",
+     "category": "Other",
+     "group": ""
+    },
+    {
+     "qty": 1,
+     "unit": "bunch",
+     "item": "spinach",
+     "note": "chopped",
+     "category": "Vegetables",
+     "group": ""
+    },
+    {
+     "qty": 1,
+     "unit": "pc",
+     "item": "lime",
+     "note": "",
+     "category": "Fruit",
+     "group": ""
+    },
+    {
+     "qty": 1,
+     "unit": "handful",
+     "item": "dhania",
+     "note": "",
+     "category": "Vegetables",
+     "group": ""
+    },
+    {
+     "qty": null,
+     "unit": "",
+     "item": "salt",
+     "note": "",
+     "category": "Pantry",
+     "group": ""
+    },
+    {
+     "qty": 1,
+     "unit": "tbsp",
+     "item": "cooking oil",
+     "note": "",
+     "category": "Pantry",
+     "group": ""
+    }
+   ],
+   "steps": [
+    "Cook the brown rice.",
+    "Season fish with salt and a pinch of turmeric.",
+    "Fry onion 5 min; add garlic and ginger 1 min, then curry powder and turmeric 30 sec.",
+    "Add tomatoes and cook 5 min until soft.",
+    "Pour in coconut milk and simmer 5 min.",
+    "Lay fish in the sauce and simmer gently 8–10 min – don't stir much.",
+    "Add spinach for the last 2 min; finish with lime juice and dhania."
+   ],
+   "tip": "Cook the night before. Fish is best eaten within 2 days.",
+   "source": "starter",
+   "createdAt": 1793750000000
+  },
+  "s-friedrice": {
+   "title": "Chicken Veg Fried Rice",
+   "mealType": "Lunch",
+   "cuisine": "Chinese",
+   "servings": "2–3 portions",
+   "ingredients": [
+    {
+     "qty": 3,
+     "unit": "cup",
+     "item": "brown rice",
+     "note": "cooked, cold",
+     "category": "Grains & bread",
+     "group": ""
+    },
+    {
+     "qty": 400,
+     "unit": "g",
+     "item": "chicken breast",
+     "note": "diced",
+     "category": "Proteins",
+     "group": ""
+    },
+    {
+     "qty": 2,
+     "unit": "pc",
+     "item": "egg",
+     "note": "",
+     "category": "Proteins",
+     "group": ""
+    },
+    {
+     "qty": 1,
+     "unit": "cup",
+     "item": "frozen peas",
+     "note": "",
+     "category": "Vegetables",
+     "group": ""
+    },
+    {
+     "qty": 2,
+     "unit": "pc",
+     "item": "carrot",
+     "note": "diced",
+     "category": "Vegetables",
+     "group": ""
+    },
+    {
+     "qty": 2,
+     "unit": "clove",
+     "item": "garlic",
+     "note": "",
+     "category": "Vegetables",
+     "group": ""
+    },
+    {
+     "qty": 1,
+     "unit": "tsp",
+     "item": "ginger",
+     "note": "",
+     "category": "Vegetables",
+     "group": ""
+    },
+    {
+     "qty": 3,
+     "unit": "tbsp",
+     "item": "soy sauce",
+     "note": "",
+     "category": "Pantry",
+     "group": ""
+    },
+    {
+     "qty": 1,
+     "unit": "bunch",
+     "item": "spring onion",
+     "note": "sliced",
+     "category": "Vegetables",
+     "group": ""
+    },
+    {
+     "qty": 1,
+     "unit": "tbsp",
+     "item": "cooking oil",
+     "note": "",
+     "category": "Pantry",
+     "group": ""
+    }
+   ],
+   "steps": [
+    "Fry chicken 6–8 min; remove from the pan.",
+    "Scramble the eggs in the same pan; remove.",
+    "Stir-fry carrots, peas, garlic and ginger 3 min.",
+    "Add rice and soy sauce; fry on high 3–4 min.",
+    "Return chicken and egg; toss with spring onions."
+   ],
+   "tip": "Day-old rice fries best – use rice cooked earlier in the week.",
+   "source": "starter",
+   "createdAt": 1793750000000
+  },
+  "s-banana-nuts": {
+   "title": "Banana + Groundnuts",
+   "mealType": "Snack",
+   "cuisine": "",
+   "servings": "1 portion",
+   "ingredients": [
+    {
+     "qty": 1,
+     "unit": "pc",
+     "item": "banana",
+     "note": "",
+     "category": "Fruit",
+     "group": ""
+    },
+    {
+     "qty": 1,
+     "unit": "handful",
+     "item": "groundnuts",
+     "note": "",
+     "category": "Nuts & seeds",
+     "group": ""
+    }
+   ],
+   "steps": [
+    "Pack and go."
+   ],
+   "tip": "",
+   "source": "starter",
+   "createdAt": 1793750000000
+  },
+  "s-pawpaw": {
+   "title": "Pawpaw with Lime",
+   "mealType": "Snack",
+   "cuisine": "",
+   "servings": "1 portion",
+   "ingredients": [
+    {
+     "qty": 0.25,
+     "unit": "pc",
+     "item": "pawpaw",
+     "note": "",
+     "category": "Fruit",
+     "group": ""
+    },
+    {
+     "qty": 0.25,
+     "unit": "pc",
+     "item": "lime",
+     "note": "",
+     "category": "Fruit",
+     "group": ""
+    }
+   ],
+   "steps": [
+    "Cube the pawpaw, squeeze over lime and pack."
+   ],
+   "tip": "",
+   "source": "starter",
+   "createdAt": 1793750000000
+  },
+  "s-yoghurt": {
+   "title": "Yoghurt with Seeds",
+   "mealType": "Snack",
+   "cuisine": "",
+   "servings": "1 portion",
+   "ingredients": [
+    {
+     "qty": 0.5,
+     "unit": "cup",
+     "item": "maziwa mala",
+     "note": "",
+     "category": "Dairy",
+     "group": ""
+    },
+    {
+     "qty": 1,
+     "unit": "tsp",
+     "item": "chia seeds",
+     "note": "",
+     "category": "Nuts & seeds",
+     "group": ""
+    }
+   ],
+   "steps": [
+    "Stir seeds into the yoghurt and pack in a small jar."
+   ],
+   "tip": "",
+   "source": "starter",
+   "createdAt": 1793750000000
+  },
+  "s-sticks": {
+   "title": "Carrot & Cucumber Sticks",
+   "mealType": "Snack",
+   "cuisine": "",
+   "servings": "1 portion",
+   "ingredients": [
+    {
+     "qty": 1,
+     "unit": "pc",
+     "item": "carrot",
+     "note": "",
+     "category": "Vegetables",
+     "group": ""
+    },
+    {
+     "qty": 0.5,
+     "unit": "pc",
+     "item": "cucumber",
+     "note": "",
+     "category": "Vegetables",
+     "group": ""
+    }
+   ],
+   "steps": [
+    "Cut into sticks and pack. Add a spoon of peanut butter for dipping if you like."
+   ],
+   "tip": "",
+   "source": "starter",
+   "createdAt": 1793750000000
+  },
+  "s-popcorn": {
+   "title": "Stovetop Popcorn",
+   "mealType": "Snack",
+   "cuisine": "",
+   "servings": "1 portion",
+   "ingredients": [
+    {
+     "qty": 2,
+     "unit": "tbsp",
+     "item": "popcorn kernels",
+     "note": "",
+     "category": "Grains & bread",
+     "group": ""
+    },
+    {
+     "qty": 1,
+     "unit": "tsp",
+     "item": "cooking oil",
+     "note": "",
+     "category": "Pantry",
+     "group": ""
+    },
+    {
+     "qty": null,
+     "unit": "",
+     "item": "salt",
+     "note": "",
+     "category": "Pantry",
+     "group": ""
+    }
+   ],
+   "steps": [
+    "Heat oil and kernels in a lidded pot on medium.",
+    "Shake while popping; take off the heat when popping slows.",
+    "Season and pack."
+   ],
+   "tip": "",
+   "source": "starter",
+   "createdAt": 1793750000000
+  }
+ },
+ "days": {
+  "2026-11-02": {
+   "Breakfast": "s-shakshuka",
+   "Lunch": "s-friedrice",
+   "Snack": "s-banana-nuts"
+  },
+  "2026-11-03": {
+   "Breakfast": "s-pbtoast",
+   "Lunch": "s-burrito",
+   "Snack": "s-pawpaw"
+  },
+  "2026-11-04": {
+   "Breakfast": "s-oats-mango",
+   "Lunch": "s-shawarma",
+   "Snack": "s-popcorn"
+  },
+  "2026-11-05": {
+   "Breakfast": "s-bircher",
+   "Lunch": "s-teriyaki",
+   "Snack": "s-yoghurt"
+  },
+  "2026-11-06": {
+   "Breakfast": "s-smoothie",
+   "Lunch": "s-fishcurry",
+   "Snack": "s-sticks"
+  }
+ }
+}
