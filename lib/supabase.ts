@@ -12,3 +12,13 @@ export function supabase(): SupabaseClient {
   }
   return client;
 }
+
+/**
+ * Whether Tiffin's one account exists yet. This reads a row rather than using a
+ * head count: a failed head request has no body, so supabase-js reports no error.
+ */
+export async function accountExists(): Promise<boolean> {
+  const { data, error } = await supabase().from("users").select("id").limit(1);
+  if (error) throw error;
+  return data.length > 0;
+}
