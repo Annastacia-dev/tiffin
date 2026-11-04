@@ -12,13 +12,14 @@ export async function GET() {
   const uid = user.id;
   const sb = supabase();
 
-  const [recipes, slots, settings, checks] = await Promise.all([
+  const [recipes, slots, settings, checks, account] = await Promise.all([
     sb.from("recipes").select("*").eq("user_id", uid),
     sb.from("plan_slots").select("date, meal, recipe_id").eq("user_id", uid),
     sb.from("settings").select("data").eq("user_id", uid).maybeSingle(),
     sb.from("shopping_checks").select("key").eq("user_id", uid),
+    sb.from("users").select("password_hash").eq("id", uid).maybeSingle(),
   ]);
-  const err = recipes.error || slots.error || settings.error || checks.error;
+  const err = recipes.error || slots.error || settings.error || checks.error || account.error;
   if (err) return NextResponse.json({ error: err.message }, { status: 500 });
 
   const days: Record<string, Record<string, string>> = {};
@@ -29,6 +30,6 @@ export async function GET() {
     days,
     settings: { ...DEFAULT_SETTINGS, ...(settings.data?.data || {}) },
     checks: Object.fromEntries((checks.data || []).map((c) => [c.key, true])),
-    profile: { name: user.name, email: user.email },
+    profile: { name: user.name, email: user.email, hasPassword: !!account.data?.password_hash },
   });
 }

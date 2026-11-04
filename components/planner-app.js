@@ -389,12 +389,11 @@ function renderSettings(){
   <h2 id="profile" style="margin-top:28px">Profile</h2>
   <form class="card form" id="profileform" novalidate>
     <label for="p-name">Name</label><input type="text" id="p-name" autocomplete="name" value="${esc(S.profile?.name||"")}">
-    <label for="p-email">Email</label><div class="help">This is what you sign in with.</div><input type="email" id="p-email" autocomplete="email" value="${esc(S.profile?.email||"")}">
-    <label for="p-new">New password</label><div class="help">Leave blank to keep your current password. At least 8 characters.</div>
+    <label for="p-email">Email</label><div class="help">This is what you sign in with. Google sign-in only works while this matches your Google email.</div><input type="email" id="p-email" autocomplete="email" value="${esc(S.profile?.email||"")}">
+    <label for="p-new">${S.profile?.hasPassword===false?"Add a password":"New password"}</label><div class="help">${S.profile?.hasPassword===false?"Optional. You signed up with Google, and a password lets you sign in with your email too. At least 8 characters.":"Leave blank to keep your current password. At least 8 characters."}</div>
     <input type="password" id="p-new" autocomplete="new-password">
-    <label for="p-new2">Confirm new password</label><input type="password" id="p-new2" autocomplete="new-password">
-    <label for="p-cur">Current password</label><div class="help">Needed to change your email or password.</div>
-    <input type="password" id="p-cur" autocomplete="current-password">
+    <label for="p-new2">Confirm password</label><input type="password" id="p-new2" autocomplete="new-password">
+    ${S.profile?.hasPassword===false?"":'<label for="p-cur">Current password</label><div class="help">Needed to change your email or password.</div><input type="password" id="p-cur" autocomplete="current-password">'}
     <div class="row" style="margin-top:18px"><button class="btn" data-act="save-profile">Save profile</button><button type="button" class="link" data-act="signout">Sign out</button></div>
   </form>`;
 }
@@ -560,14 +559,14 @@ main.addEventListener("click",e=>{
     case "ai-create": aiCreate(document.getElementById("newdesc").value,document.getElementById("newtype").value);break;
     case "signout": signOut({callbackUrl:"/signin"});break;
     case "save-profile":{
-      const v=id=>document.getElementById(id).value;
+      const v=id=>document.getElementById(id)?.value||"";
       const body={name:v("p-name").trim(),email:v("p-email").trim()};
       if(v("p-new")){if(v("p-new")!==v("p-new2")){toast("The new passwords don't match");break}body.newPassword=v("p-new")}
       if(v("p-cur"))body.currentPassword=v("p-cur");
       fetch("/api/profile",{method:"PUT",headers:{"Content-Type":"application/json"},body:JSON.stringify(body)})
         .then(r=>r.json().then(j=>({ok:r.ok,j}))).then(({ok,j})=>{
           if(!ok){toast(j.error||"Couldn't save your profile");return}
-          S.profile={name:j.name,email:j.email};ui.profileDirty=false;render();toast("Profile saved");
+          S.profile={name:j.name,email:j.email,hasPassword:j.hasPassword};ui.profileDirty=false;render();toast("Profile saved");
           const h=document.querySelector(".sub");if(h&&j.name)h.textContent="Hi "+j.name.split(" ")[0]+" – here's what's in your lunchbox.";
         }).catch(()=>toast("Couldn't save your profile"));
       break}

@@ -3,7 +3,7 @@
 Tiffin is a gut-health meal planner for packed lunches: week/month plans, AI-generated recipes, a recipe library, settings with exclusions, and a shopping list for any date range.
 
 - **Next.js 15** (App Router)
-- **NextAuth** with email + password sign-in (single account, managed in the app)
+- **NextAuth** with email + password or Google sign-in (single account, managed in the app)
 - **Supabase** Postgres for data. Only the server talks to it, using the service role key.
 - **Prisma** for database migrations only. The app still reads and writes through `supabase-js`.
 - **Anthropic API** for recipe ideas. The key stays on the server.
@@ -21,6 +21,14 @@ Enter your name, email and password there. Sign-up closes once that first accoun
 
 You can change your name, email or password later under **Settings → Profile**. Changing the email or password asks for your current password.
 Passwords are stored as scrypt hashes in the `users` table.
+
+### Sign in with Google (optional)
+
+1. In the [Google Cloud console](https://console.cloud.google.com/apis/credentials), create an **OAuth client ID** of type **Web application**.
+2. Add `<your site URL>/api/auth/callback/google` as an **Authorized redirect URI**. Add one for each place you run Tiffin, such as `http://localhost:3000/api/auth/callback/google`.
+3. Set `GOOGLE_CLIENT_ID` and `GOOGLE_CLIENT_SECRET`. The **Continue with Google** button appears once both are set.
+
+Google follows the same one-account rule. It opens your account if the verified Google email matches your Tiffin email, or creates the account if none exists yet. Any other Google account is refused.
 
 ## 3. Anthropic
 
