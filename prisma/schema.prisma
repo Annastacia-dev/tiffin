@@ -72,6 +72,20 @@ model ShoppingCheck {
   @@map("shopping_checks")
 }
 
+// AI price estimates: the cost of one unit of an ingredient, kept so each is only asked for once.
+// Null price: the AI couldn't estimate it.
+model IngredientPrice {
+  userId    String   @map("user_id")
+  item      String
+  unit      String
+  currency  String
+  price     Float?
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz
+
+  @@id([userId, item, unit, currency])
+  @@map("ingredient_prices")
+}
+
 // One row per device that turned reminders on
 model PushSubscription {
   endpoint  String   @id

@@ -3,8 +3,8 @@ import type { MetadataRoute } from "next";
 export default function manifest(): MetadataRoute.Manifest {
   return {
     id: "/",
-    name: "Tiffin",
-    short_name: "Tiffin",
+    name: "tiffin.",
+    short_name: "tiffin.",
     description: "Plan packed, gut-friendly meals, with AI recipes, a shopping list and prep reminders",
     start_url: "/",
     scope: "/",

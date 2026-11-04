@@ -7,7 +7,7 @@ button,input,select,textarea{font:inherit;color:inherit}
 .tabs,.seg,.daytabs{scrollbar-width:none}
 header{padding:28px 20px 6px;max-width:980px;margin:0 auto}
 h1{font-family:Fraunces,Georgia,serif;font-size:clamp(26px,5vw,38px);margin:0;color:var(--green)}
-.brand{display:flex;align-items:center;gap:10px}
+.brand{display:flex;align-items:center;gap:10px;font-family:Geist,Inter,system-ui,sans-serif;font-weight:900;letter-spacing:-.025em;line-height:1}
 .brand img{flex:none;border-radius:9px}
 .sub{color:var(--muted);margin:2px 0 0;font-size:14px}
 nav{position:sticky;top:0;z-index:5;background:var(--bg);border-bottom:1px solid var(--line)}
@@ -126,6 +126,11 @@ textarea{min-height:80px;resize:vertical}
 .shopitem input{margin-top:4px;width:18px;height:18px;flex:none;accent-color:var(--green)}
 .shopitem .nm{flex:1}
 .shopitem .amt{color:var(--muted);font-size:13px;text-align:right}
+.shopitem .price{display:block;color:var(--ink);font-weight:600}
+.shoptotal{margin-bottom:12px}
+.shoptotal .sum{display:flex;flex-wrap:wrap;align-items:baseline;justify-content:space-between;gap:2px 12px;font-weight:600}
+.shoptotal .sum b{font-size:22px;font-weight:700;color:var(--green)}
+.shoptotal p{margin:6px 0 0;font-size:13px}
 .shopitem.done .nm,.shopitem.done .amt{text-decoration:line-through;opacity:.55}
 .aiadd summary{cursor:pointer;font-weight:600;color:var(--green);border-radius:6px}
 .aiadd[open] summary{margin-bottom:8px}

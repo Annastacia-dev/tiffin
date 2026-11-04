@@ -39,6 +39,10 @@ export type Settings = {
   days: number[];
   lunchPortions: number;
   showCalories: boolean;
+  /** Show AI price estimates on the shopping list */
+  showPrices: boolean;
+  /** ISO 4217 code, e.g. KES */
+  currency: string;
   /** What time each meal gets cooked, "HH:MM" */
   mealTimes: Record<string, string>;
   reminders: { prep: boolean; cook: boolean };
@@ -57,6 +61,8 @@ export const DEFAULT_SETTINGS: Settings = {
   days: [0, 1, 2, 3, 4],
   lunchPortions: 3,
   showCalories: false,
+  showPrices: false,
+  currency: "KES",
   mealTimes: { Breakfast: "07:00", Lunch: "12:30", Dinner: "19:00", Snack: "15:30" },
   reminders: { prep: true, cook: false },
   quietStart: "22:00",
@@ -76,6 +82,10 @@ export function validTimeZone(v: unknown): v is string {
   } catch {
     return false;
   }
+}
+
+export function validCurrency(v: unknown): v is string {
+  return typeof v === "string" && /^[A-Z]{3}$/.test(v);
 }
 
 export function cleanCalories(v: unknown): number | null {

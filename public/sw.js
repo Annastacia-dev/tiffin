@@ -89,10 +89,10 @@ self.addEventListener("push", (e) => {
   try {
     data = e.data ? e.data.json() : {};
   } catch {
-    data = { title: "Tiffin", body: e.data ? e.data.text() : "" };
+    data = { title: "tiffin.", body: e.data ? e.data.text() : "" };
   }
   e.waitUntil(
-    self.registration.showNotification(data.title || "Tiffin", {
+    self.registration.showNotification(data.title || "tiffin.", {
       body: data.body || "",
       icon: "/icons/icon-192.png",
       badge: "/icons/badge-96.png",

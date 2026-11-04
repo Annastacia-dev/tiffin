@@ -66,7 +66,7 @@ export default function SignIn() {
   return (
     <main className="signin">
       <form className="card" onSubmit={submit}>
-        <h1 className="brand"><img src="/icons/logo.svg" alt="" width={34} height={34} />Tiffin</h1>
+        <h1 className="brand"><img src="/icons/logo.svg" alt="" width={34} height={34} />tiffin.</h1>
         <p className="muted">
           {mode === "loading" ? "Loading…" : signup ? "Create your account to start planning." : "Sign in to open your meal plan."}
         </p>

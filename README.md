@@ -79,6 +79,10 @@ Tiffin is a PWA, so browsers offer to install it, and it shows an install prompt
 
 To change the logo, edit `public/icons/logo.svg` and re-export the PNGs in that folder at the same sizes. Copy the SVG to `app/icon.svg` too, which is the favicon.
 
+## Shopping prices
+
+Turn on **Settings → Shopping list → Show estimated prices** to see a price per item and a total. Prices come from AI, based on **Where you shop** and your currency, and each ingredient is only estimated once. They cover the amounts needed, so whole packs can cost more, and Pantry items stay out of the total. Use **Estimate again** to start over.
+
 ## Prep reminders
 
 Set your cook times under **Settings → Cook times & reminders**. Tiffin counts back from them, using each recipe's prep steps. If a reminder would land in your quiet hours, it comes 30 minutes before they start instead. So a chia soak for a 07:00 breakfast reminds you the evening before.
@@ -129,6 +133,7 @@ app/api/settings   PUT settings
 app/api/checks     PUT shopping-list ticks
 app/api/ai         POST: builds the prompt from your settings and calls Claude
 app/api/ai/enrich  POST: adds calories and prep steps to saved recipes
+app/api/ai/prices  POST: estimates shopping prices, DELETE: forgets them
 app/api/push       POST/DELETE this device's notifications, POST /test
 app/api/cron       reminders: called by the scheduler
 lib/reminders.ts   works out when reminders are due

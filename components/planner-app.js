@@ -25,6 +25,8 @@ const DEFAULTS={
   days:[0,1,2,3,4],
   lunchPortions:3,
   showCalories:false,
+  showPrices:false,
+  currency:"KES",
   mealTimes:{Breakfast:"07:00",Lunch:"12:30",Dinner:"19:00",Snack:"15:30"},
   reminders:{prep:true,cook:false},
   quietStart:"22:00",
@@ -40,7 +42,7 @@ const TABS=[
 ];
 
 /* ---------- state ---------- */
-const S={recipes:{},days:{},settings:null,checks:{},profile:null,pushKey:null};
+const S={recipes:{},days:{},settings:null,checks:{},profile:null,pushKey:null,prices:{}};
 let today=new Date(); today.setHours(0,0,0,0);
 const ui={tab:"plan",mode:"week",anchor:mondayOf(today),day:ymd(today),meal:0,shopRange:"week",shopFrom:null,shopTo:null,hideDone:false,recFilter:"All",recSearch:"",openRecipe:null,aiHint:"",delArm:null,
   loaded:false,loadFailed:false,dirty:false,profileDirty:false,settingsDraft:null,aiOpen:null,newDesc:"",newType:"Lunch",addDate:null,push:"checking"};
@@ -128,7 +130,8 @@ async function loadState(){
     if(r.status===401){location.href="/signin";return}
     if(!r.ok)throw new Error("HTTP "+r.status);
     const j=await r.json();
-    S.recipes=j.recipes||{};S.days=j.days||{};S.settings=j.settings||null;S.checks=j.checks||{};S.profile=j.profile||S.profile;S.pushKey=j.push?.publicKey||null;
+    S.recipes=j.recipes||{};S.days=j.days||{};S.settings=j.settings||null;S.checks=j.checks||{};S.profile=j.profile||S.profile;S.pushKey=j.push?.publicKey||null;S.prices=j.prices||{};
+    ui.offline=!!r.headers.get("x-tiffin-offline");
     const first=!ui.loaded;
     ui.loaded=true;ui.loadFailed=false;
     banner(r.headers.get("x-tiffin-offline")?"You're offline. This is your last saved plan, and changes won't save until you reconnect.":"");
@@ -320,16 +323,38 @@ function buildList(from,to){
   }
   return {items,meals};
 }
+const WHOLE_UNITS=["pc","head","bunch","tin"];
 function fmtAmt(it){
   if(it.cat==="Pantry")return"check stock";
   const parts=Object.entries(it.amounts).filter(([u])=>u!=="_").map(([u,q])=>{
     if(u==="g"&&q>=1000)return nice(Math.round(q/100)/10)+" kg";
     if(u==="ml"&&q>=1000)return nice(Math.round(q/100)/10)+" L";
     if(u==="g"||u==="ml")return Math.round(q)+" "+u;
-    if(["pc","head","bunch","tin"].includes(u))q=Math.ceil(q-1e-9);
+    if(WHOLE_UNITS.includes(u))q=Math.ceil(q-1e-9);
     return nice(q)+(u&&u!=="pc"?" "+u:"");
   });
   return parts.length?parts.join(" + "):"as needed";
+}
+/* Pantry items say "check stock", so they may not need buying and stay out of the total */
+function itemPrice(it){
+  const parts=Object.entries(it.amounts).filter(([u])=>u!=="_");
+  if(it.cat==="Pantry"||!parts.length)return null;
+  let sum=0;
+  for(const [u,q] of parts){const p=S.prices[it.name+"|"+u];if(p==null)return null;sum+=p*(WHOLE_UNITS.includes(u)?Math.ceil(q-1e-9):q)}
+  return sum;
+}
+function money(n){const d=n>=20?0:2;return new Intl.NumberFormat(undefined,{style:"currency",currency:settings().currency,currencyDisplay:"code",minimumFractionDigits:d,maximumFractionDigits:d}).format(n)}
+function shopTotalHTML(all,rk){
+  const priced=all.filter(i=>itemPrice(i)!=null),sum=l=>l.reduce((t,i)=>t+itemPrice(i),0);
+  if(!priced.length&&ui.pricing)return '<section class="card shoptotal"><p class="muted" role="status">Estimating prices…</p></section>';
+  if(!priced.length&&!ui.priceError)return "";
+  const left=priced.filter(i=>!S.checks[rk+"|"+i.name]);
+  const pantry=all.filter(i=>i.cat==="Pantry").length,unknown=all.length-priced.length-pantry;
+  const out=[pantry?`${pantry} pantry item${pantry>1?"s":""}`:"",unknown&&!ui.pricing?`${unknown} item${unknown>1?"s":""} with no estimate`:""].filter(Boolean).join(" and ");
+  return `<section class="card shoptotal">${priced.length?`<div class="sum"><span>Estimated total</span><b>${esc(money(sum(priced)))}</b></div>
+    ${left.length<priced.length?`<div class="sum"><span>Left to buy</span><span>${esc(money(sum(left)))}</span></div>`:""}
+    <p class="muted">An AI guide for the amounts needed. Whole packs can cost more.${out?` Doesn't include ${out}.`:""}${ui.pricing?" Still estimating…":""}</p>`:""}
+    ${ui.priceError?'<p class="muted">Couldn\'t estimate prices right now. <button type="button" class="link" data-act="price-retry">Try again</button></p>':""}</section>`;
 }
 function renderShopping(){
   const [from,to,label]=shopRange();
@@ -343,13 +368,14 @@ function renderShopping(){
   if(!meals) return h+`<div class="card empty"><b>Nothing planned in this range</b>Fill the days on the Plan tab and your list appears here.<div class="emptyact"><a class="btn ghost" href="#plan">Go to plan</a></div></div>`;
   const all=Object.values(items),done=all.filter(i=>S.checks[rk+"|"+i.name]).length;
   h+=`<div class="shophead">${progress(done,all.length,`${done} of ${all.length} items ticked`)}<label class="toggle"><input type="checkbox" id="hidedone" ${ui.hideDone?"checked":""}>Hide ticked</label></div>`;
+  if(settings().showPrices){h+=shopTotalHTML(all,rk);setTimeout(fillPrices)}
   if(ui.hideDone&&done===all.length) return h+`<div class="card empty"><b>All done</b>Everything on this list is ticked.</div>`;
   h+=`<div class="shop">`;
   for(const cat of CATS){
     const list=all.filter(i=>i.cat===cat&&!(ui.hideDone&&S.checks[rk+"|"+i.name])).sort((a,b)=>a.name.localeCompare(b.name));
     if(!list.length)continue;
     h+=`<section class="card"><h4>${cat}</h4>${list.map(it=>{const k=rk+"|"+it.name,on=!!S.checks[k];
-      return `<label class="shopitem ${on?"done":""}"><input type="checkbox" data-check="${esc(k)}" ${on?"checked":""}><span class="nm">${esc(cap(it.name))}</span><span class="amt">${esc(fmtAmt(it))}</span></label>`}).join("")}</section>`;
+      return `<label class="shopitem ${on?"done":""}"><input type="checkbox" data-check="${esc(k)}" ${on?"checked":""}><span class="nm">${esc(cap(it.name))}</span><span class="amt">${esc(fmtAmt(it))}${settings().showPrices&&itemPrice(it)!=null?`<span class="price">${esc(money(itemPrice(it)))}</span>`:""}</span></label>`}).join("")}</section>`;
   }
   return h+`</div>`;
 }
@@ -401,6 +427,13 @@ function renderSettings(){
     <label for="s-lp">Portions per lunch or dinner recipe</label><input type="number" id="s-lp" min="1" max="8" value="${esc(st.lunchPortions)}" style="width:100px">
     <label>Calories</label><div class="help">AI estimates per portion. They're a guide, not a measurement.</div>
     <div class="checks"><label><input type="checkbox" id="s-cal" ${st.showCalories?"checked":""}>Show calories for each meal</label></div>
+  </section>
+  <section class="card form">
+    <h3>Shopping list</h3>
+    <label>Prices</label><div class="help">AI estimates each item for where you shop, using a little of your API credit the first time an item appears. They're a guide, and the list shows a total.</div>
+    <div class="checks"><label><input type="checkbox" id="s-prices" ${st.showPrices?"checked":""}>Show estimated prices</label></div>
+    <label for="s-cur">Currency</label><div class="help">A 3-letter code, like KES or USD.</div><input type="text" id="s-cur" maxlength="3" autocapitalize="characters" value="${esc(st.currency)}" style="width:100px;text-transform:uppercase">
+    ${Object.keys(S.prices).length?'<label>Saved estimates</label><div class="help">Prices are estimated once per item. Start over if they look out of date, or you shop somewhere new.</div><button type="button" class="btn ghost" data-act="reprice">Estimate again</button>':""}
   </section>
   <section class="card form">
     <h3>Cook times &amp; reminders</h3>
@@ -460,6 +493,8 @@ function readSettings(){
     cuisines:split(document.getElementById("s-cuis").value),location:document.getElementById("s-loc").value.trim(),
     meals:MEAL_TYPES.filter(m=>meals.includes(m)),days:days.sort(),lunchPortions:Math.max(1,Math.min(8,+document.getElementById("s-lp").value||3)),
     showCalories:document.getElementById("s-cal").checked,
+    showPrices:document.getElementById("s-prices").checked,
+    currency:document.getElementById("s-cur").value.trim().toUpperCase(),
     mealTimes:Object.fromEntries(MEAL_TYPES.map(m=>[m,document.getElementById("s-time-"+m).value||DEFAULTS.mealTimes[m]])),
     reminders:{prep:document.getElementById("s-rem-prep").checked,cook:document.getElementById("s-rem-cook").checked},
     quietStart:document.getElementById("s-quiet-start").value||DEFAULTS.quietStart,
@@ -583,6 +618,32 @@ async function enrichRecipes(){
     toast(done?`Updated ${done} recipe${done>1?"s":""}`:"Couldn't update your recipes – try again");
   }catch(e){aiError(e)}finally{busy(false);abortCtl=null;render()}
 }
+/* ---------- prices ---------- */
+// Fills in prices for the list on screen. An item missing from a reply is only asked about once per visit.
+const priceTried=new Set();
+async function fillPrices(){
+  if(ui.pricing||ui.priceError||ui.tab!=="shopping"||!settings().showPrices||ui.offline||!navigator.onLine)return;
+  const [from,to]=shopRange(),want=[];
+  for(const it of Object.values(buildList(from,to).items)){
+    if(it.cat==="Pantry")continue;
+    for(const u of Object.keys(it.amounts)){const k=it.name+"|"+u;if(u!=="_"&&!(k in S.prices)&&!priceTried.has(k))want.push({item:it.name,unit:u})}
+  }
+  if(!want.length)return;
+  ui.pricing=true;softRender();
+  try{
+    while(want.length){
+      const batch=want.splice(0,40);
+      const r=await fetch("/api/ai/prices",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({items:batch})});
+      if(r.status===401){location.href="/signin";return}
+      const j=await r.json().catch(()=>({}));
+      if(!r.ok)throw new Error(j.error||"HTTP "+r.status);
+      batch.forEach(b=>priceTried.add(b.item+"|"+b.unit));
+      if(j.currency===settings().currency)Object.assign(S.prices,j.prices);
+      softRender();
+    }
+  }catch(e){console.error(e);ui.priceError=true}
+  ui.pricing=false;softRender();
+}
 /* ---------- notifications ---------- */
 function isIos(){return /iphone|ipad|ipod/i.test(navigator.userAgent)||(navigator.platform==="MacIntel"&&navigator.maxTouchPoints>1)}
 function isStandalone(){return window.matchMedia("(display-mode: standalone)").matches||navigator.standalone===true}
@@ -690,8 +751,9 @@ main.addEventListener("click",e=>{
     case "rm-slot": changeWithUndo({[ds.date]:{[ds.meal]:null}},ds.meal+" removed");break;
     case "copy-list":{
       const [from,to]=shopRange();const {items}=buildList(from,to);
+      const showP=settings().showPrices,est=i=>{const p=showP?itemPrice(i):null;return p==null?"":` (about ${money(p)})`},tot=Object.values(items).reduce((s,i)=>s+(itemPrice(i)||0),0);
       const txt=`SHOPPING LIST ${shortDate(from)} – ${shortDate(to)}\n\n`+CATS.map(c=>{const l=Object.values(items).filter(i=>i.cat===c).sort((a,b)=>a.name.localeCompare(b.name));
-        return l.length?c.toUpperCase()+"\n"+l.map(i=>"- "+cap(i.name)+" – "+fmtAmt(i)).join("\n"):""}).filter(Boolean).join("\n\n");
+        return l.length?c.toUpperCase()+"\n"+l.map(i=>"- "+cap(i.name)+" – "+fmtAmt(i)+est(i)).join("\n"):""}).filter(Boolean).join("\n\n")+(showP&&tot?`\n\nESTIMATED TOTAL: ${money(tot)}`:"");
       navigator.clipboard.writeText(txt).then(()=>{t.textContent="Copied!";setTimeout(()=>t.textContent="Copy list",1600)}).catch(()=>toast("Copy isn't allowed here"));break}
     case "close-recipe": ui.openRecipe=null;render();break;
     case "clear-filters": ui.recFilter="All";ui.recSearch="";render();break;
@@ -711,6 +773,8 @@ main.addEventListener("click",e=>{
     case "ai-create": aiCreate(document.getElementById("newdesc").value,document.getElementById("newtype").value);break;
     case "signout": signOutHere();break;
     case "enrich": enrichRecipes();break;
+    case "price-retry": ui.priceError=false;priceTried.clear();render();break;
+    case "reprice": api("DELETE","/api/ai/prices").then(j=>{if(!j)return;S.prices={};priceTried.clear();ui.priceError=false;render();toast("Prices will be estimated again on your shopping list")});break;
     case "install": installApp();break;
     case "push-on": pushOn();break;
     case "push-off": pushOff();break;
@@ -729,8 +793,9 @@ main.addEventListener("click",e=>{
         }).catch(()=>toast("Couldn't save your profile"));
       break}
     case "save-settings":{
-      const st=readSettings();if(!st.meals.length){toast("Pick at least one meal");break}if(!st.days.length){toast("Pick at least one day");break}
-      api("PUT","/api/settings",st).then(j=>{if(!j)return;S.settings=j.settings||st;ui.dirty=false;ui.settingsDraft=null;render();toast("Settings saved")});break}
+      const st=readSettings();if(!st.meals.length){toast("Pick at least one meal");break}if(!st.days.length){toast("Pick at least one day");break}if(!/^[A-Z]{3}$/.test(st.currency)){toast("Use a 3-letter currency code, like KES");break}
+      const oldCurrency=settings().currency;
+      api("PUT","/api/settings",st).then(j=>{if(!j)return;S.settings=j.settings||st;ui.dirty=false;ui.settingsDraft=null;ui.priceError=false;if(S.settings.currency!==oldCurrency){S.prices={};priceTried.clear();loadState()}render();toast("Settings saved")});break}
   }
 });
 main.addEventListener("change",e=>{

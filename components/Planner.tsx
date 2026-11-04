@@ -12,7 +12,7 @@ export default function Planner({ name }: { name: string }) {
   return (
     <>
       <header>
-        <h1 className="brand"><img src="/icons/logo.svg" alt="" width={34} height={34} />Tiffin</h1>
+        <h1 className="brand"><img src="/icons/logo.svg" alt="" width={34} height={34} />tiffin.</h1>
         {name && <p className="sub">Hi {name} – here's what's in your lunchbox.</p>}
       </header>
       <nav aria-label="Main"><div className="tabs" id="nav" /></nav>
