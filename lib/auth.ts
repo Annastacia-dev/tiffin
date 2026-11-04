@@ -1,9 +1,34 @@
 import type { NextAuthOptions } from "next-auth";
 import { getServerSession } from "next-auth";
 import CredentialsProvider from "next-auth/providers/credentials";
+import GoogleProvider from "next-auth/providers/google";
 import { NextResponse } from "next/server";
 import { supabase } from "@/lib/supabase";
 import { normEmail, verifyPassword } from "@/lib/password";
+
+/**
+ * The Tiffin account a Google profile may use, or null if it may not sign in.
+ * Tiffin has one account: Google can open it if the verified email matches,
+ * or create it if no account exists yet. Everyone else is turned away.
+ */
+export async function accountForGoogle(profile: any): Promise<{ id: string } | null> {
+  const email = normEmail(profile?.email);
+  if (!email || profile?.email_verified !== true) return null;
+  const sb = supabase();
+  const { data: existing, error } = await sb.from("users").select("id").eq("email", email).maybeSingle();
+  if (error) throw error;
+  if (existing) return existing;
+  const { count, error: countError } = await sb.from("users").select("id", { count: "exact", head: true });
+  if (countError) throw countError;
+  if ((count ?? 0) > 0) return null;
+  const { data: created, error: insertError } = await sb
+    .from("users")
+    .insert({ email, name: String(profile.name || "").slice(0, 80), password_hash: null })
+    .select("id")
+    .single();
+  if (insertError) throw insertError;
+  return created;
+}
 
 export const authOptions: NextAuthOptions = {
   providers: [
@@ -27,12 +52,21 @@ export const authOptions: NextAuthOptions = {
         return { id: user.id, email: user.email, name: user.name };
       },
     }),
+    ...(process.env.GOOGLE_CLIENT_ID && process.env.GOOGLE_CLIENT_SECRET
+      ? [GoogleProvider({ clientId: process.env.GOOGLE_CLIENT_ID, clientSecret: process.env.GOOGLE_CLIENT_SECRET })]
+      : []),
   ],
   session: { strategy: "jwt", maxAge: 90 * 24 * 60 * 60 },
   pages: { signIn: "/signin", error: "/signin" },
   callbacks: {
-    async jwt({ token, user }) {
-      if (user) token.uid = user.id;
+    async signIn({ account, profile }) {
+      if (account?.provider !== "google") return true;
+      return !!(await accountForGoogle(profile));
+    },
+    async jwt({ token, user, account, profile }) {
+      // For Google, user.id is Google's id, so look up ours
+      if (account?.provider === "google") token.uid = (await accountForGoogle(profile))?.id;
+      else if (user) token.uid = user.id;
       return token;
     },
     async session({ session, token }) {

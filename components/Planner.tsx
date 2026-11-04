@@ -12,22 +12,18 @@ export default function Planner({ name }: { name: string }) {
   return (
     <>
       <header>
-        <div className="headrow">
-          <div>
-            <h1>Tiffin</h1>
-            {name && <p className="sub">Hi {name} – here's what's in your lunchbox.</p>}
-          </div>
-          <a className="signout" href="/api/auth/signout">Sign out</a>
-        </div>
+        <h1 className="brand"><img src="/icons/logo.svg" alt="" width={34} height={34} />tiffin.</h1>
+        {name && <p className="sub">Hi {name} – here's what's in your lunchbox.</p>}
       </header>
-      <nav><div className="tabs" id="nav" /></nav>
-      <div id="banner" />
+      <nav aria-label="Main"><div className="tabs" id="nav" /></nav>
+      <div id="installbar" />
+      <div id="banner" role="status" />
       <main id="main"><p className="muted">Loading your plan…</p></main>
-      <div id="toast" />
+      <div id="toast" role="status" aria-live="polite" />
       <div id="busy" hidden>
-        <div className="busybox">
+        <div className="busybox" role="dialog" aria-modal="true" aria-labelledby="busytext">
           <div className="spinner" />
-          <div id="busytext">Working…</div>
+          <div id="busytext" aria-live="polite">Working…</div>
           <button className="btn ghost" id="busycancel">Cancel</button>
         </div>
       </div>

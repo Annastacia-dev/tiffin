@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import Anthropic from "@anthropic-ai/sdk";
+import { parseJson } from "@/lib/ai";
 import { requireUser } from "@/lib/auth";
 import { supabase } from "@/lib/supabase";
 import { CATS, DEFAULT_SETTINGS, MEAL_TYPES, Settings, cleanRecipe } from "@/lib/types";
@@ -7,8 +8,8 @@ import { CATS, DEFAULT_SETTINGS, MEAL_TYPES, Settings, cleanRecipe } from "@/lib
 export const maxDuration = 60;
 
 function buildPrompt(st: Settings, meal: string, n: number, hint: string, avoid: string[], paste: boolean) {
-  const portions = meal === "Lunch" || meal === "Supper"
-    ? `${st.lunchPortions} portions (one for lunch, the rest for supper or the next day)`
+  const portions = meal === "Lunch" || meal === "Dinner"
+    ? `${st.lunchPortions} portions (one for ${meal.toLowerCase()}, the rest for ${meal === "Lunch" ? "dinner" : "lunch"} or the next day)`
     : "1 portion";
   return `You are a meal-planning assistant. ${paste
     ? "Turn the user's description or pasted recipe below into ONE structured recipe; if it is a full recipe, stay faithful to it."
@@ -24,15 +25,8 @@ ${avoid.length ? `Do not repeat these existing recipes: ${avoid.slice(0, 80).joi
 ${hint ? `User request: ${hint}` : ""}
 
 Return ONLY JSON in exactly this shape, no prose, no code fences:
-{"recipes":[{"title":"","cuisine":"","servings":"e.g. 1 portion or 2–3 portions","ingredients":[{"qty":number or null,"unit":"","item":"","note":"","category":"","group":""}],"steps":[""],"tip":""}]}
-Ingredient rules: "item" is the plain shopping name in lower case (e.g. "chicken thigh", "onion", "brown rice", "maziwa mala"); preparation goes in "note" (e.g. "chopped"). "unit" is one of g, ml, tsp, tbsp, cup, pc, clove, bunch, tin, head, slice, handful, pinch (use metric; "pc" for countable items). "category" is one of: ${CATS.join(", ")} (spices, oils, sauces, salt go in Pantry). "group" is "" or a sub-heading like "Sauce". Steps: 3–8 short, clear sentences. Tip: one short practical tip about prep, packing or storage.`;
-}
-
-function parseJson(text: string): any {
-  const t = text.replace(/```(?:json)?/g, "").trim();
-  const a = t.indexOf("{"), b = t.lastIndexOf("}");
-  if (a < 0 || b < a) throw new Error("no JSON in response");
-  return JSON.parse(t.slice(a, b + 1));
+{"recipes":[{"title":"","cuisine":"","servings":"e.g. 1 portion or 2–3 portions","ingredients":[{"qty":number or null,"unit":"","item":"","note":"","category":"","group":""}],"steps":[""],"tip":"","calories":number,"prep":[{"task":"","hoursBefore":number}]}]}
+Ingredient rules: "item" is the plain shopping name in lower case (e.g. "chicken thigh", "onion", "brown rice", "maziwa mala"); preparation goes in "note" (e.g. "chopped"). "unit" is one of g, ml, tsp, tbsp, cup, pc, clove, bunch, tin, head, slice, handful, pinch (use metric; "pc" for countable items). "category" is one of: ${CATS.join(", ")} (spices, oils, sauces, salt go in Pantry). "group" is "" or a sub-heading like "Sauce". Steps: 3–8 short, clear sentences. Tip: one short practical tip about prep, packing or storage. "calories" is your estimate for one portion. "prep" lists only steps that must start at least 1 hour before cooking, such as marinating, soaking, overnight oats, setting chia pudding or thawing, or is empty if there are none: "task" is a short instruction (e.g. "Soak the chia seeds") and "hoursBefore" is how long ahead to start, from 1 to 96.`;
 }
 
 /** Body: { meal, n, hint?, avoid?: string[], paste?: boolean } -> { recipes: Recipe[] } (not yet saved). */

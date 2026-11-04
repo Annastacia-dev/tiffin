@@ -7,7 +7,7 @@ export function hashPassword(password: string) {
   return `scrypt:${salt}:${hash}`;
 }
 
-export function verifyPassword(password: string, stored: string) {
+export function verifyPassword(password: string, stored: string | null) {
   const [algo, salt, hash] = (stored || "").split(":");
   if (algo !== "scrypt" || !salt || !hash || !password) return false;
   const expected = Buffer.from(hash, "base64");

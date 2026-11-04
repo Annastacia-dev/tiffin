@@ -24,10 +24,13 @@ export async function PUT(req: Request) {
   const newPassword = String(b.newPassword || "");
   const sb = supabase();
 
+  const { data: row } = await sb.from("users").select("password_hash").eq("id", u.id).single();
+  if (!row) return NextResponse.json({ error: "unauthorized" }, { status: 401 });
+
   const update: Record<string, string> = { name };
   if (email !== u.email || newPassword) {
-    const { data: row } = await sb.from("users").select("password_hash").eq("id", u.id).single();
-    if (!row || !verifyPassword(String(b.currentPassword || ""), row.password_hash)) {
+    // Accounts created with Google have no password to check yet
+    if (row.password_hash && !verifyPassword(String(b.currentPassword || ""), row.password_hash)) {
       await new Promise((r) => setTimeout(r, 1000));
       return NextResponse.json({ error: "Your current password is wrong." }, { status: 400 });
     }
@@ -46,5 +49,5 @@ export async function PUT(req: Request) {
     const taken = error.code === "23505";
     return NextResponse.json({ error: taken ? "That email is already in use." : error.message }, { status: taken ? 400 : 500 });
   }
-  return NextResponse.json({ ok: true, email: update.email ?? u.email, name });
+  return NextResponse.json({ ok: true, email: update.email ?? u.email, name, hasPassword: !!(update.password_hash || row.password_hash) });
 }
