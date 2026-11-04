@@ -6,7 +6,11 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "import-data": "node scripts/import.mjs"
+    "import-data": "node scripts/import.mjs",
+    "db:migrate": "prisma migrate dev",
+    "db:deploy": "prisma migrate deploy",
+    "db:status": "prisma migrate status",
+    "db:baseline": "prisma migrate resolve --applied 20261104000000_init"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.39.0",
@@ -22,6 +26,13 @@
     "@types/react": "^19.0.0",
     "@types/react-dom": "^19.0.0",
     "dotenv": "^16.4.7",
+    "prisma": "7.10.1",
     "typescript": "^5.7.0"
+  },
+  "pnpm": {
+    "onlyBuiltDependencies": [
+      "@prisma/engines",
+      "prisma"
+    ]
   }
 }

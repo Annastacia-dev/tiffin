@@ -1,0 +1,69 @@
+// Source of truth for the database structure. Prisma is used for migrations only:
+// the app still reads and writes through supabase-js (lib/supabase.ts), so there is no client generator.
+//
+// Row level security isn't expressible here. New tables need
+// `ALTER TABLE ... ENABLE ROW LEVEL SECURITY` added to their migration by hand.
+
+datasource db {
+  provider = "postgresql"
+}
+
+model User {
+  id           String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  email        String   @unique
+  name         String   @default("")
+  passwordHash String   @map("password_hash")
+  createdAt    DateTime @default(now()) @map("created_at") @db.Timestamptz
+
+  @@map("users")
+}
+
+// user_id in the tables below is users.id stored as text, with no foreign key to users.
+model Settings {
+  userId    String   @id @map("user_id")
+  data      Json     @default("{}") @db.JsonB
+  updatedAt DateTime @default(now()) @map("updated_at") @db.Timestamptz
+
+  @@map("settings")
+}
+
+model Recipe {
+  userId      String   @map("user_id")
+  id          String
+  title       String
+  mealType    String   @map("meal_type")
+  cuisine     String   @default("")
+  servings    String   @default("")
+  ingredients Json     @default("[]") @db.JsonB
+  steps       Json     @default("[]") @db.JsonB
+  tip         String   @default("")
+  source      String   @default("")
+  createdAt   DateTime @default(now()) @map("created_at") @db.Timestamptz
+
+  planSlots PlanSlot[]
+
+  @@id([userId, id])
+  @@map("recipes")
+}
+
+model PlanSlot {
+  userId   String   @map("user_id")
+  date     DateTime @db.Date
+  meal     String
+  recipeId String   @map("recipe_id")
+
+  recipe Recipe @relation(fields: [userId, recipeId], references: [userId, id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@id([userId, date, meal])
+  @@index([userId, date], map: "plan_slots_user_date")
+  @@map("plan_slots")
+}
+
+model ShoppingCheck {
+  userId    String   @map("user_id")
+  key       String
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz
+
+  @@id([userId, key])
+  @@map("shopping_checks")
+}

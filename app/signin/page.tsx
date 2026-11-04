@@ -11,8 +11,11 @@ export default function SignIn() {
   const [confirm, setConfirm] = useState("");
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
+  const [showPw, setShowPw] = useState(false);
 
   useEffect(() => {
+    // NextAuth sends failures it can't report to the form back here with ?error=
+    if (new URLSearchParams(window.location.search).has("error")) setError("Something went wrong signing in. Please try again.");
     fetch("/api/signup", { cache: "no-store" })
       .then((r) => r.json())
       .then((j) => setMode(j.open ? "signup" : "signin"))
@@ -51,30 +54,47 @@ export default function SignIn() {
 
   const signup = mode === "signup";
   return (
-    <div className="signin">
+    <main className="signin">
       <form className="card" onSubmit={submit}>
         <h1>Tiffin</h1>
         <p className="muted">
           {mode === "loading" ? "Loading…" : signup ? "Create your account to start planning." : "Sign in to open your meal plan."}
         </p>
-        {error && <div className="warnbox">{error}</div>}
+        {error && <div className="warnbox" role="alert">{error}</div>}
         {mode !== "loading" && (
           <>
             {signup && (
-              <input type="text" required placeholder="Your name" autoComplete="name" value={name} onChange={(e) => setName(e.target.value)} />
+              <label className="field">
+                <span>Your name</span>
+                <input type="text" required autoFocus autoComplete="name" value={name} onChange={(e) => setName(e.target.value)} />
+              </label>
             )}
-            <input type="email" required autoFocus placeholder="Email" autoComplete="email" value={email} onChange={(e) => setEmail(e.target.value)} />
-            <input
-              type="password"
-              required
-              minLength={signup ? 8 : undefined}
-              placeholder={signup ? "Password (8+ characters)" : "Password"}
-              autoComplete={signup ? "new-password" : "current-password"}
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-            />
+            <label className="field">
+              <span>Email</span>
+              <input type="email" required autoFocus={!signup} autoComplete="email" value={email} onChange={(e) => setEmail(e.target.value)} />
+            </label>
+            <label className="field">
+              <span>Password</span>
+              <span className="pwrow">
+                <input
+                  type={showPw ? "text" : "password"}
+                  required
+                  minLength={signup ? 8 : undefined}
+                  autoComplete={signup ? "new-password" : "current-password"}
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                />
+                <button type="button" className="link" aria-pressed={showPw} onClick={() => setShowPw(!showPw)}>
+                  {showPw ? "Hide" : "Show"}
+                </button>
+              </span>
+              {signup && <small className="muted">At least 8 characters.</small>}
+            </label>
             {signup && (
-              <input type="password" required placeholder="Confirm password" autoComplete="new-password" value={confirm} onChange={(e) => setConfirm(e.target.value)} />
+              <label className="field">
+                <span>Confirm password</span>
+                <input type={showPw ? "text" : "password"} required autoComplete="new-password" value={confirm} onChange={(e) => setConfirm(e.target.value)} />
+              </label>
             )}
             <button className="btn" type="submit" disabled={busy}>
               {busy ? "Please wait…" : signup ? "Create account" : "Sign in"}
@@ -82,6 +102,6 @@ export default function SignIn() {
           </>
         )}
       </form>
-    </div>
+    </main>
   );
 }

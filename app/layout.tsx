@@ -6,7 +6,7 @@ export const metadata: Metadata = {
   description: "Tiffin – plan packed, gut-friendly meals, with AI recipes and a shopping list",
 };
 
-export const viewport: Viewport = { width: "device-width", initialScale: 1 };
+export const viewport: Viewport = { width: "device-width", initialScale: 1, themeColor: "#f6f3ec" };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
