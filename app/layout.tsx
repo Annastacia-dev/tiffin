@@ -7,7 +7,11 @@ export const metadata: Metadata = {
   description: "Tiffin – plan packed, gut-friendly meals, with AI recipes and a shopping list",
   applicationName: "tiffin.",
   appleWebApp: { capable: true, title: "tiffin.", statusBarStyle: "default" },
-  icons: { apple: "/icons/apple-touch-icon.png" },
+  // Setting icons here turns off the automatic link for app/icon.svg, so it has to be listed too
+  icons: {
+    icon: [{ url: "/icon.svg", type: "image/svg+xml" }, { url: "/icons/icon-192.png", type: "image/png", sizes: "192x192" }],
+    apple: "/icons/apple-touch-icon.png",
+  },
 };
 
 export const viewport: Viewport = { width: "device-width", initialScale: 1, themeColor: "#f6f3ec" };
