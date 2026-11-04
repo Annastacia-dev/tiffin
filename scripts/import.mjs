@@ -7,9 +7,9 @@ import dotenv from "dotenv";
 dotenv.config({ path: ".env.local" });
 dotenv.config();
 
-const email = (process.argv[2] || (process.env.ALLOWED_EMAILS || "").split(",")[0] || "").trim().toLowerCase();
+const email = (process.argv[2] || "").trim().toLowerCase();
 if (!email) {
-  console.error("Pass the Google email you sign in with: npm run import-data -- you@example.com");
+  console.error("Pass the email you sign in with: npm run import-data -- you@example.com");
   process.exit(1);
 }
 const { SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY } = process.env;
@@ -19,10 +19,17 @@ if (!SUPABASE_URL || !SUPABASE_SERVICE_ROLE_KEY) {
 }
 
 const sb = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, { auth: { persistSession: false } });
+const { data: user, error: userErr } = await sb.from("users").select("id").eq("email", email).maybeSingle();
+if (userErr) throw userErr;
+if (!user) {
+  console.error(`No account for ${email} yet. Open Tiffin, create your account, then run this again.`);
+  process.exit(1);
+}
+const uid = user.id;
 const data = JSON.parse(readFileSync(new URL("../data/export.json", import.meta.url), "utf8"));
 
 const recipes = Object.entries(data.recipes).map(([id, r]) => ({
-  user_id: email,
+  user_id: uid,
   id,
   title: r.title,
   meal_type: r.mealType,
@@ -34,7 +41,7 @@ const recipes = Object.entries(data.recipes).map(([id, r]) => ({
   source: r.source || "",
 }));
 const slots = Object.entries(data.days).flatMap(([date, meals]) =>
-  Object.entries(meals).map(([meal, recipe_id]) => ({ user_id: email, date, meal, recipe_id }))
+  Object.entries(meals).map(([meal, recipe_id]) => ({ user_id: uid, date, meal, recipe_id }))
 );
 
 let r = await sb.from("recipes").upsert(recipes, { onConflict: "user_id,id" });

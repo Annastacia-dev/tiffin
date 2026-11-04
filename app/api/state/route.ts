@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { requireUser } from "@/lib/auth";
+import { currentUser } from "@/lib/auth";
 import { supabase } from "@/lib/supabase";
 import { DEFAULT_SETTINGS, rowToRecipe } from "@/lib/types";
 
@@ -7,8 +7,9 @@ export const dynamic = "force-dynamic";
 
 /** Everything the planner needs, for the signed-in user. */
 export async function GET() {
-  const uid = await requireUser();
-  if (uid instanceof NextResponse) return uid;
+  const user = await currentUser();
+  if (!user) return NextResponse.json({ error: "unauthorized" }, { status: 401 });
+  const uid = user.id;
   const sb = supabase();
 
   const [recipes, slots, settings, checks] = await Promise.all([
@@ -28,5 +29,6 @@ export async function GET() {
     days,
     settings: { ...DEFAULT_SETTINGS, ...(settings.data?.data || {}) },
     checks: Object.fromEntries((checks.data || []).map((c) => [c.key, true])),
+    profile: { name: user.name, email: user.email },
   });
 }

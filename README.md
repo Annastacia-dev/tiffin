@@ -3,7 +3,7 @@
 Tiffin is a gut-health meal planner for packed lunches: week/month plans, AI-generated recipes, a recipe library, settings with exclusions, and a shopping list for any date range.
 
 - **Next.js 15** (App Router)
-- **NextAuth** with email + password sign-in, limited to the emails in `ALLOWED_EMAILS`
+- **NextAuth** with email + password sign-in (single account, managed in the app)
 - **Supabase** Postgres for data. Only the server talks to it, using the service role key.
 - **Anthropic API** for recipe ideas. The key stays on the server.
 
@@ -13,17 +13,13 @@ Tiffin is a gut-health meal planner for packed lunches: week/month plans, AI-gen
 2. Open **SQL Editor → New query**, paste in `supabase/schema.sql` and run it.
 3. Under **Project Settings → API**, copy the **Project URL** and the **service_role** key.
 
-## 2. Sign-in
+## 2. Your account
 
-Sign in with **email and password**. Only the emails in `ALLOWED_EMAILS` can sign in, and the password is
-checked against `PASSWORD_HASH`. Only a scrypt hash is stored, never the password itself.
+You don't set a user in env variables. The first time you open Tiffin, you'll see **Create account**.
+Enter your name, email and password there. Sign-up closes once that first account exists, so nobody else can register.
 
-```bash
-npm run hash-password -- "choose a strong password"
-```
-
-Paste the line it prints into `.env.local` and into Vercel's environment variables.
-`DISPLAY_NAME` sets the name in the greeting.
+You can change your name, email or password later under **Settings → Profile**. Changing the email or password asks for your current password.
+Passwords are stored as scrypt hashes in the `users` table.
 
 ## 3. Anthropic
 
@@ -34,12 +30,15 @@ Create an API key at [console.anthropic.com](https://console.anthropic.com). Fil
 ```bash
 npm install
 cp .env.example .env.local   # fill in every value
-npm run hash-password -- "your password"   # paste the output into .env.local
-npm run import-data -- annetotoh@gmail.com   # optional: brings over your existing recipes and plan
 npm run dev
 ```
 
-Then open http://localhost:3000.
+Open http://localhost:3000, create your account, then (optional) import your existing recipes and plan:
+
+```bash
+npm run import-data -- you@example.com
+```
+
 
 To create `NEXTAUTH_SECRET`, run `node -e "console.log(require('crypto').randomBytes(32).toString('base64'))"`.
 
@@ -59,6 +58,8 @@ The `#` part of the URL picks the tab: `/#plan`, `/#shopping`, `/#recipes`, `/#s
 ## Project layout
 
 ```
+app/api/signup     first-run account creation
+app/api/profile    GET/PUT name, email, password
 app/api/state      GET everything for the signed-in user
 app/api/plan       POST slot changes
 app/api/recipes    POST recipes, DELETE /api/recipes/:id

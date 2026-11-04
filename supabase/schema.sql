@@ -2,6 +2,15 @@
 -- All access goes through the Next.js server with the service role key,
 -- so RLS is enabled with no policies: the public anon key can read nothing.
 
+create table if not exists public.users (
+  id            uuid primary key default gen_random_uuid(),
+  email         text not null unique,
+  name          text not null default '',
+  password_hash text not null,
+  created_at    timestamptz not null default now()
+);
+
+-- user_id in the tables below is users.id (as text)
 create table if not exists public.settings (
   user_id    text primary key,
   data       jsonb not null default '{}'::jsonb,
@@ -40,6 +49,7 @@ create table if not exists public.shopping_checks (
   primary key (user_id, key)
 );
 
+alter table public.users           enable row level security;
 alter table public.settings        enable row level security;
 alter table public.recipes         enable row level security;
 alter table public.plan_slots      enable row level security;

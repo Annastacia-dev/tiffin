@@ -22,7 +22,7 @@ const DEFAULTS={
 };
 
 /* ---------- state ---------- */
-const S={recipes:{},days:{},settings:null,checks:{}};
+const S={recipes:{},days:{},settings:null,checks:{},profile:null};
 let online=false, sample=true;
 const today=new Date(); today.setHours(0,0,0,0);
 const ui={tab:"plan",mode:"week",anchor:mondayOf(today),day:ymd(today),meal:0,shopRange:"week",shopFrom:null,shopTo:null,recFilter:"All",recSearch:"",openRecipe:null,aiHint:"",delArm:null};
@@ -93,7 +93,7 @@ async function loadState(){
     if(r.status===401){location.href="/signin";return}
     if(!r.ok)throw new Error("HTTP "+r.status);
     const j=await r.json();
-    S.recipes=j.recipes||{};S.days=j.days||{};S.settings=j.settings||null;S.checks=j.checks||{};
+    S.recipes=j.recipes||{};S.days=j.days||{};S.settings=j.settings||null;S.checks=j.checks||{};S.profile=j.profile||S.profile;
     online=true;banner("");softRender();
   }catch(e){console.error(e);banner("Couldn't load your saved data – check your connection and refresh.")}
 }
@@ -293,6 +293,17 @@ function renderSettings(){
     <label>Days to plan</label><div class="checks">${WD.map((w,i)=>`<label><input type="checkbox" name="s-day" value="${i}" ${st.days.includes(i)?"checked":""}>${w}</label>`).join("")}</div>
     <label for="s-lp">Lunch portions per recipe</label><input type="number" id="s-lp" min="1" max="8" value="${esc(st.lunchPortions)}" style="width:100px">
     <div style="margin-top:18px"><button class="btn" data-act="save-settings">Save settings</button></div>
+  </section>
+  <h2 id="profile" style="margin-top:28px">Profile</h2>
+  <section class="card form">
+    <label for="p-name">Name</label><input type="text" id="p-name" autocomplete="name" value="${esc(S.profile?.name||"")}">
+    <label for="p-email">Email</label><div class="help">This is what you sign in with.</div><input type="text" id="p-email" autocomplete="email" value="${esc(S.profile?.email||"")}">
+    <label for="p-new">New password</label><div class="help">Leave blank to keep your current password. At least 8 characters.</div>
+    <input type="password" id="p-new" autocomplete="new-password">
+    <label for="p-new2">Confirm new password</label><input type="password" id="p-new2" autocomplete="new-password">
+    <label for="p-cur">Current password</label><div class="help">Needed to change your email or password.</div>
+    <input type="password" id="p-cur" autocomplete="current-password">
+    <div class="row" style="margin-top:18px"><button class="btn" data-act="save-profile">Save profile</button><a class="link" href="/api/auth/signout">Sign out</a></div>
   </section>`;
 }
 function readSettings(){
@@ -440,6 +451,18 @@ main.addEventListener("click",e=>{
       for(const [d,sl] of Object.entries(S.days))for(const [m,rid] of Object.entries(sl))if(rid===id){delete sl[m];if(!Object.keys(sl).length)delete S.days[d]}
       render();toast("Recipe deleted");break}
     case "ai-create": aiCreate(document.getElementById("newdesc").value,document.getElementById("newtype").value);break;
+    case "save-profile":{
+      const v=id=>document.getElementById(id).value;
+      const body={name:v("p-name").trim(),email:v("p-email").trim()};
+      if(v("p-new")){if(v("p-new")!==v("p-new2")){toast("The new passwords don't match");break}body.newPassword=v("p-new")}
+      if(v("p-cur"))body.currentPassword=v("p-cur");
+      fetch("/api/profile",{method:"PUT",headers:{"Content-Type":"application/json"},body:JSON.stringify(body)})
+        .then(r=>r.json().then(j=>({ok:r.ok,j}))).then(({ok,j})=>{
+          if(!ok){toast(j.error||"Couldn't save your profile");return}
+          S.profile={name:j.name,email:j.email};render();toast("Profile saved");
+          const h=document.querySelector(".sub");if(h&&j.name)h.textContent="Hi "+j.name.split(" ")[0]+" – here's what's in your lunchbox.";
+        }).catch(()=>toast("Couldn't save your profile"));
+      break}
     case "save-settings":{
       const st=readSettings();if(!st.meals.length){toast("Pick at least one meal");break}if(!st.days.length){toast("Pick at least one day");break}
       S.settings=st;api("PUT","/api/settings",st).then(ok=>{if(ok)toast("Settings saved")});render();break}

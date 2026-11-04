@@ -2,26 +2,8 @@ import type { NextAuthOptions } from "next-auth";
 import { getServerSession } from "next-auth";
 import CredentialsProvider from "next-auth/providers/credentials";
 import { NextResponse } from "next/server";
-import { scryptSync, timingSafeEqual } from "node:crypto";
-
-/** Checks a password against PASSWORD_HASH ("scrypt:<salt>:<hash>", made by `npm run hash-password`). */
-function passwordOk(password: string) {
-  const [algo, salt, hash] = (process.env.PASSWORD_HASH || "").trim().split(":");
-  if (algo !== "scrypt" || !salt || !hash || !password) return false;
-  const expected = Buffer.from(hash, "base64");
-  const actual = scryptSync(password, salt, expected.length);
-  return timingSafeEqual(actual, expected);
-}
-
-/** Only emails listed in ALLOWED_EMAILS can sign in. An empty list lets nobody in. */
-export function allowed(email?: string | null) {
-  if (!email) return false;
-  const list = (process.env.ALLOWED_EMAILS || "")
-    .split(",")
-    .map((e) => e.trim().toLowerCase())
-    .filter(Boolean);
-  return list.includes(email.trim().toLowerCase());
-}
+import { supabase } from "@/lib/supabase";
+import { normEmail, verifyPassword } from "@/lib/password";
 
 export const authOptions: NextAuthOptions = {
   providers: [
@@ -32,25 +14,47 @@ export const authOptions: NextAuthOptions = {
         password: { label: "Password", type: "password" },
       },
       async authorize(credentials) {
-        const email = String(credentials?.email || "").trim().toLowerCase();
-        const ok = allowed(email) && passwordOk(String(credentials?.password || ""));
-        if (!ok) {
+        const email = normEmail(credentials?.email);
+        const { data: user } = await supabase()
+          .from("users")
+          .select("id, email, name, password_hash")
+          .eq("email", email)
+          .maybeSingle();
+        if (!user || !verifyPassword(String(credentials?.password || ""), user.password_hash)) {
           await new Promise((r) => setTimeout(r, 1000)); // slow down guessing
           return null;
         }
-        return { id: email, email, name: process.env.DISPLAY_NAME || email.split("@")[0] };
+        return { id: user.id, email: user.email, name: user.name };
       },
     }),
   ],
   session: { strategy: "jwt", maxAge: 90 * 24 * 60 * 60 },
   pages: { signIn: "/signin", error: "/signin" },
+  callbacks: {
+    async jwt({ token, user }) {
+      if (user) token.uid = user.id;
+      return token;
+    },
+    async session({ session, token }) {
+      if (session.user) (session.user as any).id = token.uid;
+      return session;
+    },
+  },
 };
 
-/** Returns the signed-in user's id (lower-cased email) or null. */
-export async function currentUserId(): Promise<string | null> {
+export type CurrentUser = { id: string; email: string; name: string };
+
+/** The signed-in user, re-read from the database so profile changes apply at once. */
+export async function currentUser(): Promise<CurrentUser | null> {
   const session = await getServerSession(authOptions);
-  const email = session?.user?.email;
-  return email && allowed(email) ? email.toLowerCase() : null;
+  const id = (session?.user as any)?.id;
+  if (!id) return null;
+  const { data } = await supabase().from("users").select("id, email, name").eq("id", id).maybeSingle();
+  return data ?? null;
+}
+
+export async function currentUserId(): Promise<string | null> {
+  return (await currentUser())?.id ?? null;
 }
 
 /** Use in route handlers: `const u = await requireUser(); if (u instanceof NextResponse) return u;` */

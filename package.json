@@ -6,8 +6,7 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "import-data": "node scripts/import.mjs",
-    "hash-password": "node scripts/hash-password.mjs"
+    "import-data": "node scripts/import.mjs"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.39.0",
