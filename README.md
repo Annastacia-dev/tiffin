@@ -16,7 +16,7 @@ Tiffin is a gut-health meal planner for packed lunches: week/month plans, AI-gen
 
 ## 2. Your account
 
-You don't set a user in env variables. The first time you open Tiffin, you'll see **Create account**.
+You don't set a user in env variables. The first time you open Tiffin, choose **Create an account** on the sign-in page, or go to `/signup`.
 Enter your name, email and password there. Sign-up closes once that first account exists, so nobody else can register.
 
 You can change your name, email or password later under **Settings → Profile**. Changing the email or password asks for your current password.
