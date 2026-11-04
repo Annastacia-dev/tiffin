@@ -106,3 +106,5 @@ textarea{min-height:80px;resize:vertical}
 .signin .card{max-width:360px;width:100%;text-align:center;padding:32px 26px}
 .signin h1{margin-bottom:6px}
 .signin .btn{width:100%;padding:12px;margin-top:14px}
+.signin input[type=email]{margin-top:14px;padding:12px;font-size:15px}
+.signin input[type=password]{margin-top:10px;padding:12px;font-size:15px}

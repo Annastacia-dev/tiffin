@@ -3,7 +3,7 @@
 Tiffin is a gut-health meal planner for packed lunches: week/month plans, AI-generated recipes, a recipe library, settings with exclusions, and a shopping list for any date range.
 
 - **Next.js 15** (App Router)
-- **NextAuth** with Google sign-in, limited to the emails in `ALLOWED_EMAILS`
+- **NextAuth** with email + password sign-in, limited to the emails in `ALLOWED_EMAILS`
 - **Supabase** Postgres for data. Only the server talks to it, using the service role key.
 - **Anthropic API** for recipe ideas. The key stays on the server.
 
@@ -13,13 +13,17 @@ Tiffin is a gut-health meal planner for packed lunches: week/month plans, AI-gen
 2. Open **SQL Editor → New query**, paste in `supabase/schema.sql` and run it.
 3. Under **Project Settings → API**, copy the **Project URL** and the **service_role** key.
 
-## 2. Google sign-in
+## 2. Sign-in
 
-1. In [Google Cloud Console](https://console.cloud.google.com/) go to **APIs & Services → Credentials → Create credentials → OAuth client ID**, choose **Web application**, and set up the consent screen if you're asked to.
-2. Add these **Authorised redirect URIs**:
-   - `http://localhost:3000/api/auth/callback/google`
-   - `https://YOUR-DOMAIN/api/auth/callback/google`
-3. Copy the client ID and secret.
+Sign in with **email and password**. Only the emails in `ALLOWED_EMAILS` can sign in, and the password is
+checked against `PASSWORD_HASH`. Only a scrypt hash is stored, never the password itself.
+
+```bash
+npm run hash-password -- "choose a strong password"
+```
+
+Paste the line it prints into `.env.local` and into Vercel's environment variables.
+`DISPLAY_NAME` sets the name in the greeting.
 
 ## 3. Anthropic
 
@@ -30,20 +34,21 @@ Create an API key at [console.anthropic.com](https://console.anthropic.com). Fil
 ```bash
 npm install
 cp .env.example .env.local   # fill in every value
+npm run hash-password -- "your password"   # paste the output into .env.local
 npm run import-data -- annetotoh@gmail.com   # optional: brings over your existing recipes and plan
 npm run dev
 ```
 
 Then open http://localhost:3000.
 
-To create `NEXTAUTH_SECRET`, run `openssl rand -base64 32`.
+To create `NEXTAUTH_SECRET`, run `node -e "console.log(require('crypto').randomBytes(32).toString('base64'))"`.
 
 ## 5. Deploy (Vercel)
 
 1. Push this folder to a GitHub repo.
 2. In [Vercel](https://vercel.com), choose **Add New → Project** and import the repo.
 3. Add every variable from `.env.example`. Set `NEXTAUTH_URL` to your production URL.
-4. Deploy, then add the production callback URL in Google Cloud (step 2).
+4. Deploy.
 
 Netlify, Railway or any Node host works too. Run `npm run build && npm start`.
 

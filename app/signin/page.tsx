@@ -2,24 +2,54 @@
 
 import { signIn } from "next-auth/react";
 import { useSearchParams } from "next/navigation";
-import { Suspense } from "react";
+import { FormEvent, Suspense, useState } from "react";
 
 function SignInInner() {
-  const error = useSearchParams().get("error");
+  const urlError = useSearchParams().get("error");
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [error, setError] = useState(urlError ? "Wrong email or password." : "");
+  const [busy, setBusy] = useState(false);
+
+  async function submit(e: FormEvent) {
+    e.preventDefault();
+    setBusy(true);
+    setError("");
+    const res = await signIn("credentials", { email, password, redirect: false });
+    if (res?.ok) window.location.href = "/";
+    else {
+      setError("Wrong email or password.");
+      setBusy(false);
+    }
+  }
+
   return (
     <div className="signin">
-      <div className="card">
+      <form className="card" onSubmit={submit}>
         <h1>Tiffin</h1>
-        <p className="muted">Sign in to see your plan, recipes and shopping list.</p>
-        {error && (
-          <div className="warnbox">
-            {error === "AccessDenied" ? "This Google account isn't allowed to use this planner." : "Sign-in failed. Please try again."}
-          </div>
-        )}
-        <button className="btn" onClick={() => signIn("google", { callbackUrl: "/" })}>
-          Continue with Google
+        <p className="muted">Sign in to open your meal plan.</p>
+        {error && <div className="warnbox">{error}</div>}
+        <input
+          type="email"
+          required
+          autoFocus
+          autoComplete="email"
+          placeholder="you@example.com"
+          value={email}
+          onChange={(e) => setEmail(e.target.value)}
+        />
+        <input
+          type="password"
+          required
+          autoComplete="current-password"
+          placeholder="Password"
+          value={password}
+          onChange={(e) => setPassword(e.target.value)}
+        />
+        <button className="btn" type="submit" disabled={busy}>
+          {busy ? "Signing in…" : "Continue"}
         </button>
-      </div>
+      </form>
     </div>
   );
 }

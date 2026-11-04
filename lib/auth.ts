@@ -1,31 +1,49 @@
 import type { NextAuthOptions } from "next-auth";
 import { getServerSession } from "next-auth";
-import GoogleProvider from "next-auth/providers/google";
+import CredentialsProvider from "next-auth/providers/credentials";
 import { NextResponse } from "next/server";
+import { scryptSync, timingSafeEqual } from "node:crypto";
 
-function allowed(email?: string | null) {
+/** Checks a password against PASSWORD_HASH ("scrypt:<salt>:<hash>", made by `npm run hash-password`). */
+function passwordOk(password: string) {
+  const [algo, salt, hash] = (process.env.PASSWORD_HASH || "").trim().split(":");
+  if (algo !== "scrypt" || !salt || !hash || !password) return false;
+  const expected = Buffer.from(hash, "base64");
+  const actual = scryptSync(password, salt, expected.length);
+  return timingSafeEqual(actual, expected);
+}
+
+/** Only emails listed in ALLOWED_EMAILS can sign in. An empty list lets nobody in. */
+export function allowed(email?: string | null) {
   if (!email) return false;
   const list = (process.env.ALLOWED_EMAILS || "")
     .split(",")
     .map((e) => e.trim().toLowerCase())
     .filter(Boolean);
-  return list.length === 0 || list.includes(email.toLowerCase());
+  return list.includes(email.trim().toLowerCase());
 }
 
 export const authOptions: NextAuthOptions = {
   providers: [
-    GoogleProvider({
-      clientId: process.env.GOOGLE_CLIENT_ID || "",
-      clientSecret: process.env.GOOGLE_CLIENT_SECRET || "",
+    CredentialsProvider({
+      name: "Email and password",
+      credentials: {
+        email: { label: "Email", type: "email" },
+        password: { label: "Password", type: "password" },
+      },
+      async authorize(credentials) {
+        const email = String(credentials?.email || "").trim().toLowerCase();
+        const ok = allowed(email) && passwordOk(String(credentials?.password || ""));
+        if (!ok) {
+          await new Promise((r) => setTimeout(r, 1000)); // slow down guessing
+          return null;
+        }
+        return { id: email, email, name: process.env.DISPLAY_NAME || email.split("@")[0] };
+      },
     }),
   ],
-  session: { strategy: "jwt" },
+  session: { strategy: "jwt", maxAge: 90 * 24 * 60 * 60 },
   pages: { signIn: "/signin", error: "/signin" },
-  callbacks: {
-    async signIn({ user }) {
-      return allowed(user.email);
-    },
-  },
 };
 
 /** Returns the signed-in user's id (lower-cased email) or null. */
