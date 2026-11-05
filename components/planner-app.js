@@ -34,6 +34,10 @@ const DEFAULTS={
   timezone:"Africa/Nairobi"
 };
 const svg=p=>`<svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${p}</svg>`;
+const ICON_MOVE=svg('<path d="M4 12h15"/><path d="M13 6l6 6-6 6"/>');
+const ICON_SWITCH=svg('<path d="M3 8h17"/><path d="M16 4l4 4-4 4"/><path d="M21 16H4"/><path d="M8 12l-4 4 4 4"/>');
+const ICON_REMOVE=svg('<path d="M4 7h16"/><path d="M9 7V4h6v3"/><path d="M6 7l1 13h10l1-13"/><path d="M10 11v5"/><path d="M14 11v5"/>');
+const ICON_CLOSE=svg('<path d="M6 6l12 12"/><path d="M18 6L6 18"/>');
 const TABS=[
   ["plan","Plan",svg('<rect x="3" y="5" width="18" height="16" rx="2"/><path d="M3 10h18M8 3v4M16 3v4"/>')],
   ["shopping","Shopping",svg('<path d="M6 8h12l1 13H5L6 8z"/><path d="M9 8V6a3 3 0 0 1 6 0v2"/>')],
@@ -45,7 +49,7 @@ const TABS=[
 const S={recipes:{},days:{},settings:null,checks:{},profile:null,pushKey:null,prices:{}};
 let today=new Date(); today.setHours(0,0,0,0);
 const ui={tab:"plan",mode:"week",anchor:mondayOf(today),day:ymd(today),meal:0,shopRange:"week",shopFrom:null,shopTo:null,hideDone:false,recFilter:"All",recSearch:"",openRecipe:null,aiHint:"",delArm:null,
-  loaded:false,loadFailed:false,dirty:false,profileDirty:false,settingsDraft:null,aiOpen:null,newDesc:"",newType:"Lunch",addDate:null,push:"checking"};
+  loaded:false,loadFailed:false,dirty:false,profileDirty:false,settingsDraft:null,aiOpen:null,newDesc:"",newType:"Lunch",addDate:null,push:"checking",slotMove:null};
 
 /* ---------- utils ---------- */
 function esc(s){return String(s??"").replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;")}
@@ -250,7 +254,7 @@ function renderWeek(st){
         <span class="mealtitle ${r?"":"none"}">${bad?"⚠ ":""}${r?esc(r.title):"Nothing planned"}${r?mealSub(r,date,meal,st):""}</span>
         <span class="chev" aria-hidden="true">›</span>
       </button>
-      ${open?`<div class="mealbody">${r?recipeHTML(r,{showType:false,showTitle:false,date,meal}):`<div class="empty"><b>No ${esc(meal.toLowerCase())} planned</b>Pick one of your recipes or ask AI for a new idea.</div>`}${slotActions(date,meal,r)}</div>`:""}
+      ${open?`<div class="mealbody">${slotTools(date,meal,r)}${r?recipeHTML(r,{showType:false,showTitle:false,date,meal}):`<div class="empty"><b>No ${esc(meal.toLowerCase())} planned</b>Pick one of your recipes or ask AI for a new idea.</div>`}${slotActions(date,meal,r)}</div>`:""}
     </section>`;
   }).join("");
   return h;
@@ -262,6 +266,26 @@ function mealSub(r,date,meal,st){
   if(sched)bits.push("Start prep "+fmtWall(sched.wall));
   return bits.length?`<small class="mealsub">${esc(bits.join(" · "))}</small>`:"";
 }
+function dayLabel(d){return WD[wdIdx(d)]+" "+shortDate(d)}
+function slotTools(date,meal,r){
+  if(!r)return "";
+  const m=ui.slotMove&&ui.slotMove.date===date&&ui.slotMove.meal===meal?ui.slotMove:null;
+  const tool=(act,icon,label,kind)=>`<button type="button" class="tool ${kind&&m&&m.kind===kind?"on":""} ${act==="rm-slot"?"danger":""}" data-act="${act}" data-date="${date}" data-meal="${esc(meal)}" ${kind?`aria-expanded="${!!m&&m.kind===kind}"`:""}>${icon}<span>${label}</span></button>`;
+  return `<div class="slottools" role="group" aria-label="Change this ${esc(meal.toLowerCase())}">${tool("slot-move",ICON_MOVE,"Move","move")}${tool("slot-switch",ICON_SWITCH,"Switch","switch")}${tool("rm-slot",ICON_REMOVE,"Remove")}</div>${m?movePanel(m,r):""}`;
+}
+// Moving replaces whatever the other day has for this meal. Switching needs something to swap with.
+function movePanel(m,r){
+  const move=m.kind==="move",end=addDays(m.anchor,6);
+  const days=weekDates(m.anchor).filter(d=>ymd(d)!==m.date).map(d=>{
+    const id=ymd(d),other=recipeAt(id,m.meal),same=other&&other.id===r.id,off=same||(!move&&!other);
+    const note=same?"Same recipe":other?(move?"Replaces ":"Swaps with ")+other.title:move?"Empty":"Nothing to switch with";
+    return `<button type="button" class="dayopt" data-act="slot-target" data-target="${id}" ${off?"disabled":""}><b>${dayLabel(d)}</b><span>${esc(note)}</span></button>`}).join("");
+  return `<div class="movepanel">
+    <div class="movehead"><span>${move?"Move":"Switch"} ${esc(m.meal.toLowerCase())} ${move?"to":"with"}</span><button type="button" class="icon" data-act="slot-close" aria-label="Close">${ICON_CLOSE}</button></div>
+    <div class="moveweek"><button type="button" class="icon" data-act="slot-week" data-step="-1" aria-label="Previous week">‹</button><span aria-live="polite">${shortDate(m.anchor)} – ${shortDate(end)}</span><button type="button" class="icon" data-act="slot-week" data-step="1" aria-label="Next week">›</button></div>
+    ${days||'<p class="muted">No days to plan in this week.</p>'}
+  </div>`;
+}
 function slotActions(date,meal,r){
   const opts=Object.values(S.recipes).filter(x=>x.mealType===meal).sort((a,b)=>a.title.localeCompare(b.title))
     .map(x=>`<option value="${esc(x.id)}" ${r&&r.id===x.id?"selected":""}>${violates(x).length?"⚠ ":""}${esc(x.title)}</option>`).join("");
@@ -271,7 +295,6 @@ function slotActions(date,meal,r){
     <form class="aiform"><label class="field"><span>Or ask AI for a new idea</span>
       <input type="text" id="hint" placeholder="Optional, e.g. something with beef" value="${esc(ui.aiHint)}"></label>
       <button class="btn" data-act="ai-slot" data-date="${date}" data-meal="${esc(meal)}">✨ New idea</button></form>
-    ${r?`<button class="btn quiet" data-act="rm-slot" data-date="${date}" data-meal="${esc(meal)}">Remove from this day</button>`:""}
   </div>`;
 }
 
@@ -727,6 +750,7 @@ main.addEventListener("click",e=>{
   if(!t)return;
   const ds=t.dataset;
   if(ds.act!=="del-recipe")ui.delArm=null;
+  if(!/^slot-/.test(ds.act||""))ui.slotMove=null;
   if(ds.mode){ui.mode=ds.mode;const base=ui.day?parse(ui.day):ui.anchor;
     ui.anchor=ds.mode==="week"?mondayOf(base):new Date(base.getFullYear(),base.getMonth(),1);render();return}
   if(ds.nav!==undefined){const n=+ds.nav;
@@ -748,6 +772,17 @@ main.addEventListener("click",e=>{
       const ch={};scopeDates().forEach(d=>{const id=ymd(d);const ms=settings().meals.filter(m=>slotsOf(id)[m]);if(ms.length){ch[id]={};ms.forEach(m=>ch[id][m]=null)}});
       changeWithUndo(ch,(ui.mode==="week"?"Week":"Month")+" cleared");break}
     case "ai-slot": aiSlot(ds.date,ds.meal);break;
+    case "slot-move":case "slot-switch":{
+      const kind=ds.act==="slot-move"?"move":"switch",m=ui.slotMove;
+      ui.slotMove=m&&m.kind===kind&&m.date===ds.date&&m.meal===ds.meal?null:{kind,date:ds.date,meal:ds.meal,anchor:mondayOf(parse(ds.date))};
+      render();break}
+    case "slot-close": ui.slotMove=null;render();break;
+    case "slot-week": ui.slotMove.anchor=addDays(ui.slotMove.anchor,7*+ds.step);render();break;
+    case "slot-target":{
+      const {kind,date,meal}=ui.slotMove,to=ds.target,r=recipeAt(date,meal),other=recipeAt(to,meal),day=dayLabel(parse(to));
+      if(!r||(kind==="switch"&&!other))break;
+      ui.slotMove=null;
+      changeWithUndo({[date]:{[meal]:kind==="move"?null:other.id},[to]:{[meal]:r.id}},kind==="switch"?meal+" switched with "+day:meal+" moved to "+day);break}
     case "rm-slot": changeWithUndo({[ds.date]:{[ds.meal]:null}},ds.meal+" removed");break;
     case "copy-list":{
       const [from,to]=shopRange();const {items}=buildList(from,to);
