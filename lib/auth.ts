@@ -3,7 +3,7 @@ import { getServerSession } from "next-auth";
 import CredentialsProvider from "next-auth/providers/credentials";
 import GoogleProvider from "next-auth/providers/google";
 import { NextResponse } from "next/server";
-import { supabase } from "@/lib/supabase";
+import { accountExists, supabase } from "@/lib/supabase";
 import { normEmail, verifyPassword } from "@/lib/password";
 
 /**
@@ -18,9 +18,7 @@ export async function accountForGoogle(profile: any): Promise<{ id: string } | n
   const { data: existing, error } = await sb.from("users").select("id").eq("email", email).maybeSingle();
   if (error) throw error;
   if (existing) return existing;
-  const { count, error: countError } = await sb.from("users").select("id", { count: "exact", head: true });
-  if (countError) throw countError;
-  if ((count ?? 0) > 0) return null;
+  if (await accountExists()) return null;
   const { data: created, error: insertError } = await sb
     .from("users")
     .insert({ email, name: String(profile.name || "").slice(0, 80), password_hash: null })
