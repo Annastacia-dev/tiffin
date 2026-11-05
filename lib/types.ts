@@ -29,6 +29,8 @@ export type Recipe = {
 
 export type PrepStep = { task: string; hoursBefore: number };
 
+export type Units = { volume: "cup" | "tbsp" | "ml"; weight: "g" | "oz"; temp: "C" | "F" };
+
 export type Settings = {
   exclusions: string[];
   diet: string;
@@ -39,10 +41,14 @@ export type Settings = {
   days: number[];
   lunchPortions: number;
   showCalories: boolean;
+  /** Most calories to aim for in a day. Null means no limit. */
+  maxCalories: number | null;
   /** Show AI price estimates on the shopping list */
   showPrices: boolean;
   /** ISO 4217 code, e.g. KES */
   currency: string;
+  /** How amounts are shown. Saved recipes keep the units they were written with. */
+  units: Units;
   /** What time each meal gets cooked, "HH:MM" */
   mealTimes: Record<string, string>;
   reminders: { prep: boolean; cook: boolean };
@@ -50,6 +56,29 @@ export type Settings = {
   quietEnd: string;
   timezone: string;
 };
+
+const MEAL_CALORIE_SHARE: Record<string, number> = { Breakfast: 0.25, Lunch: 0.35, Dinner: 0.35, Snack: 0.1 };
+
+/**
+ * Lunch and dinner recipes make extra portions. When only one of those meals is
+ * planned, the leftovers get eaten as the other one, so it still has calories.
+ */
+export function leftoversAs(st: Pick<Settings, "meals" | "lunchPortions">): "Lunch" | "Dinner" | null {
+  if (st.lunchPortions <= 1) return null;
+  const lunch = st.meals.includes("Lunch"), dinner = st.meals.includes("Dinner");
+  if (lunch === dinner) return null;
+  return lunch ? "Dinner" : "Lunch";
+}
+
+/** The most one portion of this meal can have for the day's meals, leftovers included, to fit the daily limit. */
+export function mealCalorieLimit(st: Settings, meal: string): number | null {
+  if (!st.maxCalories) return null;
+  const planned = new Set([...st.meals, meal]);
+  const leftovers = leftoversAs({ ...st, meals: [...planned] });
+  if (leftovers) planned.add(leftovers);
+  const total = [...planned].reduce((sum, m) => sum + (MEAL_CALORIE_SHARE[m] ?? 0), 0);
+  return Math.round((st.maxCalories * (MEAL_CALORIE_SHARE[meal] ?? 0)) / total / 10) * 10;
+}
 
 export const DEFAULT_SETTINGS: Settings = {
   exclusions: ["beans", "ndengu", "lentils", "chickpeas"],
@@ -61,8 +90,10 @@ export const DEFAULT_SETTINGS: Settings = {
   days: [0, 1, 2, 3, 4],
   lunchPortions: 3,
   showCalories: false,
+  maxCalories: null,
   showPrices: false,
   currency: "KES",
+  units: { volume: "cup", weight: "g", temp: "C" },
   mealTimes: { Breakfast: "07:00", Lunch: "12:30", Dinner: "19:00", Snack: "15:30" },
   reminders: { prep: true, cook: false },
   quietStart: "22:00",

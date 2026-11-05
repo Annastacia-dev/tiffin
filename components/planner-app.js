@@ -3,6 +3,7 @@
 // Data comes from the Next.js API routes (Supabase behind them).
 import { signOut } from "next-auth/react";
 import { fmtWall, prepSchedule, wallToInstant } from "../lib/reminders";
+import { leftoversAs } from "../lib/types";
 
 let mounted=false;
 export function mountPlanner(){
@@ -25,8 +26,10 @@ const DEFAULTS={
   days:[0,1,2,3,4],
   lunchPortions:3,
   showCalories:false,
+  maxCalories:null,
   showPrices:false,
   currency:"KES",
+  units:{volume:"cup",weight:"g",temp:"C"},
   mealTimes:{Breakfast:"07:00",Lunch:"12:30",Dinner:"19:00",Snack:"15:30"},
   reminders:{prep:true,cook:false},
   quietStart:"22:00",
@@ -69,7 +72,59 @@ function nice(q){
   if(f>.04) return String(Math.round(q*10)/10);
   return String(w);
 }
-function fmtIng(i){const u=i.unit&&i.unit!=="pc"?i.unit:"";return [nice(i.qty),u,i.item].filter(Boolean).join(" ")+(i.note?", "+i.note:"")}
+/* Measurement settings only change what's shown. Recipes, and the prices saved against their units, keep the amounts they were written with. */
+const UNIT_ALIAS={cups:"cup",grams:"g",gram:"g",ounce:"oz",ounces:"oz",lbs:"lb",pound:"lb",pounds:"lb"};
+const FRACTIONS={"¼":.25,"½":.5,"¾":.75,"⅓":1/3,"⅔":2/3};
+function toPreferred(q,unit){
+  const raw=String(unit||"").trim().toLowerCase(),u=UNIT_ALIAS[raw]||raw,{volume,weight}=settings().units;
+  if(u==="cup"&&volume==="tbsp")return [q*16,"tbsp"];
+  if(u==="cup"&&volume==="ml")return [q*240,"ml"];
+  if(weight==="oz"&&u==="g")return [q/28.35,"oz"];
+  if(weight==="oz"&&u==="kg")return [q*1000/28.35,"oz"];
+  if(weight==="g"&&u==="oz")return [Math.round(q*28.35),"g"];
+  if(weight==="g"&&u==="lb")return [Math.round(q*453.6),"g"];
+  return [q,unit];
+}
+function roundPreferred(q,u){
+  const {volume}=settings().units;
+  if(u==="tbsp"&&volume==="tbsp")return Math.round(q*4)/4||q;
+  if(u==="ml"&&volume!=="cup")return Math.round(q/5)*5||q;
+  if(u==="oz")return (q<10?Math.round(q*4)/4:Math.round(q))||q;
+  return q;
+}
+/* Nobody counts out 48 spoonfuls, so more than a cup's worth of tablespoons shows in ml */
+function spillSpoons(q,u){return u==="tbsp"&&q>16&&settings().units.volume==="tbsp"?[q*15,"ml"]:[q,u]}
+function parseQty(s){
+  s=s.trim();
+  const mixed=s.match(/^(\d+)\s+(\d+)\/(\d+)$/);if(mixed)return +mixed[1]+mixed[2]/mixed[3];
+  const frac=s.match(/^(\d+)\/(\d+)$/);if(frac)return frac[1]/frac[2];
+  const sym=s.match(/^(\d*\.?\d*)\s*([¼½¾⅓⅔])$/);if(sym)return (+sym[1]||0)+FRACTIONS[sym[2]];
+  return +s;
+}
+const QTY=/\d+\s+\d+\/\d+|\d+\/\d+|\d+(?:\.\d+)?\s*[¼½¾⅓⅔]?|[¼½¾⅓⅔]/.source;
+const AMOUNT_RE=new RegExp(String.raw`(?<![\d.,/])(?:(${QTY})\s*(?:-|–|to)\s*)?(${QTY})[\s-]*(cups?|ounces?|oz|pounds?|lbs?|grams?|kg|g)\b`,"gi");
+const TEMP_RE=/(?<![\d.])(?:(\d{2,3})\s*(?:-|–|to)\s*)?(\d{2,3})\s*(°|degrees?)?\s*([CF])\b/g;
+/* Amounts and oven temperatures written inside recipe text, like "2 cups water" or "180°C" */
+function convertText(s){
+  const temp=settings().units.temp;
+  return String(s||"").replace(AMOUNT_RE,(all,a,b,unit)=>{
+    const from=unit.toLowerCase(),[q2,u2]=toPreferred(parseQty(b),from);
+    if(u2===from)return all;
+    const [hi,u3]=spillSpoons(q2,u2),show=q=>nice(roundPreferred(q,u3));
+    if(!a)return show(hi)+" "+u3;
+    const lo=toPreferred(parseQty(a),from)[0]*(u3===u2?1:15);
+    return show(lo)+"–"+show(hi)+" "+u3;
+  }).replace(TEMP_RE,(all,a,b,mark,from)=>{
+    if(from===temp||(!mark&&b.length<3))return all;
+    const conv=t=>Math.round((from==="C"?t*9/5+32:(t-32)*5/9)/5)*5;
+    return (a?conv(+a)+"–":"")+conv(+b)+"°"+temp;
+  });
+}
+function fmtIng(i){
+  const n=Number(i.qty),[q,unit]=i.qty!==""&&i.qty!=null&&isFinite(n)?spillSpoons(...toPreferred(n,i.unit)):[i.qty,i.unit];
+  const u=unit&&unit!=="pc"?unit:"";
+  return [nice(typeof q==="number"?roundPreferred(q,unit):q),u,i.item].filter(Boolean).join(" ")+(i.note?", "+convertText(i.note):"");
+}
 function escRe(s){return s.replace(/[.*+?^${}()|[\]\\]/g,"\\$&")}
 function violates(r){
   const terms=(settings().exclusions||[]).map(t=>String(t).trim().toLowerCase()).filter(Boolean);
@@ -191,13 +246,20 @@ function render(){
 }
 
 function kcal(n){return "≈"+Number(n).toLocaleString()+" kcal"}
+/* A lunch or dinner that makes more than one portion gets finished later the same day, when the other meal isn't planned */
+function leftoverCalories(date,st){
+  const later=leftoversAs(st);if(!later)return 0;
+  const r=recipeAt(date,later==="Dinner"?"Lunch":"Dinner");if(!r||!r.calories)return 0;
+  const made=String(r.servings||"").match(/\d+/g);
+  return (made?Math.max(...made.map(Number)):st.lunchPortions)>1?r.calories:0;
+}
 function hoursLabel(h){return h+(h===1?" hour":" hours")}
 function prepHTML(r,date,meal){
   if(!r.prep||!r.prep.length)return"";
   const st=settings(),sched=date?prepSchedule(r,date,meal,st):r.prep;
   return `<div class="prepbox"><h4>Prep ahead</h4><ul>${sched.map(s=>{
     const passed=date&&wallToInstant(s.wall,st.timezone).getTime()<Date.now();
-    return `<li><b>${esc(s.task)}</b> <span class="muted">${hoursLabel(s.hoursBefore)} before cooking${date?(passed?" · start time has passed":" · start by "+fmtWall(s.wall)):""}</span></li>`}).join("")}</ul></div>`;
+    return `<li><b>${esc(convertText(s.task))}</b> <span class="muted">${hoursLabel(s.hoursBefore)} before cooking${date?(passed?" · start time has passed":" · start by "+fmtWall(s.wall)):""}</span></li>`}).join("")}</ul></div>`;
 }
 function recipeHTML(r,{showType=true,showTitle=true,date=null,meal=null}={}){
   const v=violates(r);
@@ -209,8 +271,8 @@ function recipeHTML(r,{showType=true,showTitle=true,date=null,meal=null}={}){
     ${v.length?`<div class="warnbox">⚠ Contains something on your exclusion list: ${esc(v.join(", "))}</div>`:""}
     ${prepHTML(r,date,meal)}
     <div class="cols"><div><h4>Ingredients</h4><ul class="ing">${ing}</ul></div>
-    <div><h4>Recipe</h4><ol class="steps">${(r.steps||[]).map(s=>`<li>${esc(s)}</li>`).join("")}</ol>
-    ${r.tip?`<div class="tip"><b>Tip:</b> ${esc(r.tip)}</div>`:""}</div></div>`;
+    <div><h4>Recipe</h4><ol class="steps">${(r.steps||[]).map(s=>`<li>${esc(convertText(s))}</li>`).join("")}</ol>
+    ${r.tip?`<div class="tip"><b>Tip:</b> ${esc(convertText(r.tip))}</div>`:""}</div></div>`;
 }
 
 function renderPlan(){
@@ -244,8 +306,8 @@ function renderWeek(st){
   let h=`<div class="daytabs">${dates.map(d=>{const id=ymd(d);const n=st.meals.filter(m=>recipeAt(id,m)).length;
     return `<button data-day="${id}" class="${id===ui.day?"on":""} ${id===todayId?"today":""}" aria-pressed="${id===ui.day}" aria-label="${WD_L[wdIdx(d)]} ${shortDate(d)}${id===todayId?", today":""}, ${n} of ${st.meals.length} meals planned">${WD[wdIdx(d)]}<small>${shortDate(d)}</small><span class="pips" aria-hidden="true">${st.meals.map(m=>`<i class="${recipeAt(id,m)?"f":""}"></i>`).join("")}</span></button>`}).join("")}</div>`;
   const date=ui.day,dd=parse(date);
-  const dayRecipes=st.meals.map(m=>recipeAt(date,m)).filter(Boolean),dayCal=dayRecipes.reduce((n,r)=>n+(r.calories||0),0),noCal=dayRecipes.filter(r=>!r.calories).length;
-  h+=`<h2 class="dayh">${WD_L[wdIdx(dd)]} ${shortDate(dd)}${date===todayId?' <span class="tag">Today</span>':""}${st.showCalories&&dayCal?`<span class="daykcal">${kcal(dayCal)}${noCal?` + ${noCal} unknown`:""}</span>`:""}</h2>`;
+  const dayRecipes=st.meals.map(m=>recipeAt(date,m)).filter(Boolean),leftCal=leftoverCalories(date,st),dayCal=dayRecipes.reduce((n,r)=>n+(r.calories||0),0)+leftCal,noCal=dayRecipes.filter(r=>!r.calories).length;
+  h+=`<h2 class="dayh">${WD_L[wdIdx(dd)]} ${shortDate(dd)}${date===todayId?' <span class="tag">Today</span>':""}${(st.showCalories||st.maxCalories)&&dayCal?`<span class="daykcal ${st.maxCalories&&dayCal>st.maxCalories?"over":""}">${kcal(dayCal)}${leftCal?" with leftovers":""}${noCal?` + ${noCal} unknown`:""}${st.maxCalories&&dayCal>st.maxCalories?` · ${(dayCal-st.maxCalories).toLocaleString()} over your limit`:""}</span>`:""}</h2>`;
   h+=st.meals.map((meal,i)=>{
     const r=recipeAt(date,meal),open=i===ui.meal,bad=r&&violates(r).length;
     return `<section class="mealcard ${open?"open":""}">
@@ -350,7 +412,12 @@ function buildList(from,to){
 const WHOLE_UNITS=["pc","head","bunch","tin"];
 function fmtAmt(it){
   if(it.cat==="Pantry")return"check stock";
-  const parts=Object.entries(it.amounts).filter(([u])=>u!=="_").map(([u,q])=>{
+  const shown={};
+  for(const [u,q] of Object.entries(it.amounts)){if(u==="_")continue;const [q2,u2]=toPreferred(q,u);shown[u2]=(shown[u2]||0)+q2}
+  if(shown.tbsp){const [q3,u3]=spillSpoons(shown.tbsp,"tbsp");if(u3==="ml"){delete shown.tbsp;shown.ml=(shown.ml||0)+q3}}
+  const parts=Object.entries(shown).map(([u,q])=>{
+    q=roundPreferred(q,u);
+    if(u==="oz"&&q>=16)return nice(Math.round(q/1.6)/10)+" lb";
     if(u==="g"&&q>=1000)return nice(Math.round(q/100)/10)+" kg";
     if(u==="ml"&&q>=1000)return nice(Math.round(q/100)/10)+" L";
     if(u==="g"||u==="ml")return Math.round(q)+" "+u;
@@ -451,6 +518,18 @@ function renderSettings(){
     <label for="s-lp">Portions per lunch or dinner recipe</label><input type="number" id="s-lp" min="1" max="8" value="${esc(st.lunchPortions)}" style="width:100px">
     <label>Calories</label><div class="help">AI estimates per portion. They're a guide, not a measurement.</div>
     <div class="checks"><label><input type="checkbox" id="s-cal" ${st.showCalories?"checked":""}>Show calories for each meal</label></div>
+    <label for="s-maxcal">Most calories per day</label><div class="help">AI splits this across the meals you plan and keeps each new recipe within its share, leaving room for a leftover portion when only one of lunch or dinner is planned. Your plan warns you when a day goes over. Leave blank for no limit.</div>
+    <input type="number" id="s-maxcal" min="500" max="10000" step="50" inputmode="numeric" value="${esc(st.maxCalories??"")}" style="width:120px">
+  </section>
+  <section class="card form">
+    <h3>Measurements</h3>
+    <div class="help">Recipes and your shopping list show amounts this way. Your saved recipes aren't changed, so you can switch back at any time.</div>
+    <label>Instead of cups, use</label><div class="help">1 cup is 16 tablespoons or 240 ml. With tablespoons, anything over a cup shows in ml.</div>
+    <div class="checks">${[["cup","Cups"],["tbsp","Tablespoons"],["ml","Millilitres"]].map(([v,l])=>`<label><input type="radio" name="s-volume" value="${v}" ${st.units.volume===v?"checked":""}>${l}</label>`).join("")}</div>
+    <label>Weight</label>
+    <div class="checks">${[["g","Grams"],["oz","Ounces"]].map(([v,l])=>`<label><input type="radio" name="s-weight" value="${v}" ${st.units.weight===v?"checked":""}>${l}</label>`).join("")}</div>
+    <label>Oven temperature</label>
+    <div class="checks">${[["C","°C"],["F","°F"]].map(([v,l])=>`<label><input type="radio" name="s-temp" value="${v}" ${st.units.temp===v?"checked":""}>${l}</label>`).join("")}</div>
   </section>
   <section class="card form">
     <h3>Shopping list</h3>
@@ -517,8 +596,10 @@ function readSettings(){
     cuisines:split(document.getElementById("s-cuis").value),location:document.getElementById("s-loc").value.trim(),
     meals:MEAL_TYPES.filter(m=>meals.includes(m)),days:days.sort(),lunchPortions:Math.max(1,Math.min(8,+document.getElementById("s-lp").value||3)),
     showCalories:document.getElementById("s-cal").checked,
+    maxCalories:document.getElementById("s-maxcal").value===""?null:+document.getElementById("s-maxcal").value,
     showPrices:document.getElementById("s-prices").checked,
     currency:document.getElementById("s-cur").value.trim().toUpperCase(),
+    units:{volume:document.querySelector('input[name="s-volume"]:checked').value,weight:document.querySelector('input[name="s-weight"]:checked').value,temp:document.querySelector('input[name="s-temp"]:checked').value},
     mealTimes:Object.fromEntries(MEAL_TYPES.map(m=>[m,document.getElementById("s-time-"+m).value||DEFAULTS.mealTimes[m]])),
     reminders:{prep:document.getElementById("s-rem-prep").checked,cook:document.getElementById("s-rem-cook").checked},
     quietStart:document.getElementById("s-quiet-start").value||DEFAULTS.quietStart,
@@ -829,7 +910,7 @@ main.addEventListener("click",e=>{
         }).catch(()=>toast("Couldn't save your profile"));
       break}
     case "save-settings":{
-      const st=readSettings();if(!st.meals.length){toast("Pick at least one meal");break}if(!st.days.length){toast("Pick at least one day");break}if(!/^[A-Z]{3}$/.test(st.currency)){toast("Use a 3-letter currency code, like KES");break}
+      const st=readSettings();if(!st.meals.length){toast("Pick at least one meal");break}if(!st.days.length){toast("Pick at least one day");break}if(!/^[A-Z]{3}$/.test(st.currency)){toast("Use a 3-letter currency code, like KES");break}if(st.maxCalories!=null&&!(st.maxCalories>=500&&st.maxCalories<=10000)){toast("Set a daily calorie limit from 500 to 10,000, or leave it blank");break}
       const oldCurrency=settings().currency;
       api("PUT","/api/settings",st).then(j=>{if(!j)return;S.settings=j.settings||st;ui.dirty=false;ui.settingsDraft=null;ui.priceError=false;if(S.settings.currency!==oldCurrency){S.prices={};priceTried.clear();loadState()}render();toast("Settings saved")});break}
   }
