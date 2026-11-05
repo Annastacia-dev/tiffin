@@ -279,9 +279,10 @@ function movePanel(m,r){
   const days=weekDates(m.anchor).filter(d=>ymd(d)!==m.date).map(d=>{
     const id=ymd(d),other=recipeAt(id,m.meal),same=other&&other.id===r.id,off=same||(!move&&!other);
     const note=same?"Same recipe":other?(move?"Replaces ":"Swaps with ")+other.title:move?"Empty":"Nothing to switch with";
-    return `<button type="button" class="dayopt" data-act="slot-target" data-target="${id}" ${off?"disabled":""}><b>${dayLabel(d)}</b><span>${esc(note)}</span></button>`}).join("");
+    return `<button type="button" class="dayopt ${id===m.pick?"picked":""}" data-act="slot-target" data-target="${id}" ${off?"disabled":""}><b>${dayLabel(d)}</b><span>${esc(note)}</span></button>`}).join("");
   return `<div class="movepanel">
     <div class="movehead"><span>${move?"Move":"Switch"} ${esc(m.meal.toLowerCase())} ${move?"to":"with"}</span><button type="button" class="icon" data-act="slot-close" aria-label="Close">${ICON_CLOSE}</button></div>
+    <label class="field movedate"><span>Go to a date</span><input type="date" id="slot-date" value="${esc(m.pick||"")}"></label>
     <div class="moveweek"><button type="button" class="icon" data-act="slot-week" data-step="-1" aria-label="Previous week">‹</button><span aria-live="polite">${shortDate(m.anchor)} – ${shortDate(end)}</span><button type="button" class="icon" data-act="slot-week" data-step="1" aria-label="Next week">›</button></div>
     ${days||'<p class="muted">No days to plan in this week.</p>'}
   </div>`;
@@ -777,7 +778,7 @@ main.addEventListener("click",e=>{
       ui.slotMove=m&&m.kind===kind&&m.date===ds.date&&m.meal===ds.meal?null:{kind,date:ds.date,meal:ds.meal,anchor:mondayOf(parse(ds.date))};
       render();break}
     case "slot-close": ui.slotMove=null;render();break;
-    case "slot-week": ui.slotMove.anchor=addDays(ui.slotMove.anchor,7*+ds.step);render();break;
+    case "slot-week": ui.slotMove.anchor=addDays(ui.slotMove.anchor,7*+ds.step);ui.slotMove.pick=null;render();break;
     case "slot-target":{
       const {kind,date,meal}=ui.slotMove,to=ds.target,r=recipeAt(date,meal),other=recipeAt(to,meal),day=dayLabel(parse(to));
       if(!r||(kind==="switch"&&!other))break;
@@ -841,6 +842,12 @@ main.addEventListener("change",e=>{
   if(t.id==="hidedone"){ui.hideDone=t.checked;render();return}
   if(t.id==="newtype"){ui.newType=t.value;return}
   if(t.id==="adddate"){ui.addDate=t.value;return}
+  if(t.id==="slot-date"&&ui.slotMove&&t.value){
+    const d=parse(t.value),m=ui.slotMove;
+    m.anchor=mondayOf(d);m.pick=t.value;
+    if(t.value===m.date)toast("That's the day this meal is already on");
+    else if(!settings().days.includes(wdIdx(d)))toast(WD_L[wdIdx(d)]+" isn't one of your planned days. You can change that in Settings.");
+    render();return}
   if(t.id==="sfrom"||t.id==="sto"){ui.shopFrom=document.getElementById("sfrom").value||ui.shopFrom;ui.shopTo=document.getElementById("sto").value||ui.shopTo;render()}
 });
 main.addEventListener("input",e=>{
