@@ -20,6 +20,7 @@ export default function Planner({ name }: { name: string }) {
       <div id="banner" role="status" />
       <main id="main"><p className="muted">Loading your plan…</p></main>
       <div id="toast" role="status" aria-live="polite" />
+      <div id="sheet" hidden />
       <div id="busy" hidden>
         <div className="busybox" role="dialog" aria-modal="true" aria-labelledby="busytext">
           <div className="spinner" />

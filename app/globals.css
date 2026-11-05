@@ -1,13 +1,13 @@
 
-:root{--bg:#f6f3ec;--card:#fff;--ink:#2a2a26;--muted:#6d6a62;--green:#2f5d3a;--green-soft:#e5eee2;--accent:#b3541e;--line:#ebe6db;--warn:#a2321d;--warn-soft:#fbe9e4;--sand:#e9e4d8;--nav-h:0px}
+:root{--font:-apple-system,BlinkMacSystemFont,"SF Pro Text",Inter,system-ui,sans-serif;--ease:cubic-bezier(.32,.72,0,1);--spring:cubic-bezier(.34,1.45,.64,1);--bg:#f5f4f0;--card:#fff;--ink:#1c1c1e;--muted:#6c6c70;--green:#2f5d3a;--green-soft:#e5eee2;--accent:#b3541e;--line:rgba(60,60,67,.13);--warn:#a2321d;--warn-soft:#fbe9e4;--sand:#e9e4d8;--nav-h:0px}
 *{box-sizing:border-box}
-body{margin:0;background:var(--bg);color:var(--ink);font-family:Inter,system-ui,sans-serif;line-height:1.5}
+body{margin:0;background:var(--bg);color:var(--ink);font-family:var(--font);line-height:1.5}
 button,input,select,textarea{font:inherit;color:inherit}
 :focus-visible{outline:2px solid var(--green);outline-offset:2px}
 .tabs,.seg,.daytabs{scrollbar-width:none}
 header{padding:28px 20px 6px;max-width:980px;margin:0 auto}
-h1{font-family:Fraunces,Georgia,serif;font-size:clamp(26px,5vw,38px);margin:0;color:var(--green)}
-.brand{display:flex;align-items:center;gap:10px;font-family:Geist,Inter,system-ui,sans-serif;font-weight:900;letter-spacing:-.025em;line-height:1}
+h1{font-family:var(--font);font-size:clamp(26px,5vw,38px);margin:0;color:var(--green)}
+.brand{display:flex;align-items:center;gap:10px;font-family:Geist,var(--font);font-weight:900;letter-spacing:-.025em;line-height:1}
 .brand img{flex:none;border-radius:9px}
 .signin form>.muted.authswitch{margin:16px 0 0;text-align:center;font-size:14px}
 .authswitch a{color:var(--green);font-weight:600}
@@ -23,7 +23,7 @@ main{max-width:980px;margin:0 auto;padding:18px 20px 80px}
 .installbar img{border-radius:8px}
 #banner{max-width:980px;margin:0 auto;padding:0 20px}
 #banner div{margin-top:12px;background:#fff7e6;border:1px solid #f0dcb0;padding:10px 14px;border-radius:10px;font-size:14px}
-h2{font-family:Fraunces,Georgia,serif;margin:0;font-size:26px}
+h2{font-family:var(--font);margin:0;font-size:26px}
 .toolbar{display:flex;flex-wrap:wrap;gap:10px;align-items:center;justify-content:space-between;margin-bottom:12px}
 .seg{display:flex;gap:3px;background:var(--sand);padding:3px;border-radius:11px;max-width:100%;overflow-x:auto}
 .seg button{flex:0 0 auto;border:none;background:transparent;padding:8px 14px;border-radius:8px;font-weight:600;font-size:14px;color:var(--muted);cursor:pointer}
@@ -60,13 +60,13 @@ h2{font-family:Fraunces,Georgia,serif;margin:0;font-size:26px}
 .daytabs button.on .pips i.f{background:#fff;border-color:#fff}
 .dayh{font-size:20px;margin:0 0 10px;display:flex;flex-wrap:wrap;align-items:center;gap:8px}
 .daykcal.over{color:var(--warn)}
-.daykcal{margin-left:auto;font-family:Inter,system-ui,sans-serif;font-size:13px;font-weight:600;color:var(--muted)}
+.daykcal{margin-left:auto;font-family:var(--font);font-size:13px;font-weight:600;color:var(--muted)}
 .mealcard{background:var(--card);border-radius:14px;margin-bottom:10px;box-shadow:0 1px 6px rgba(0,0,0,.05)}
 .mealhead{width:100%;display:flex;align-items:center;gap:12px;background:none;border:none;border-radius:14px;padding:14px 16px;cursor:pointer;text-align:left}
 .mealhead:hover .mealtitle{color:var(--green)}
 .mealname{flex:0 0 78px;font-size:11px;font-weight:600;letter-spacing:.08em;text-transform:uppercase;color:var(--accent)}
-.mealtitle{flex:1;min-width:0;font-family:Fraunces,Georgia,serif;font-weight:600;font-size:17px;line-height:1.3}
-.mealsub{display:block;margin-top:2px;font-family:Inter,system-ui,sans-serif;font-size:12px;font-weight:500;color:var(--muted)}
+.mealtitle{flex:1;min-width:0;font-family:var(--font);font-weight:600;font-size:17px;line-height:1.3}
+.mealsub{display:block;margin-top:2px;font-family:var(--font);font-size:12px;font-weight:500;color:var(--muted)}
 .mealtitle.none{font-family:inherit;font-weight:500;font-size:14px;color:var(--muted)}
 .chev{flex:none;color:var(--muted);font-size:20px;line-height:1;transition:transform .15s}
 .mealcard.open .chev{transform:rotate(90deg)}
@@ -87,8 +87,8 @@ h2{font-family:Fraunces,Georgia,serif;margin:0;font-size:26px}
 .dayopt.picked:not(:disabled){border-color:var(--green);box-shadow:inset 0 0 0 1px var(--green)}
 .movepanel .movedate{max-width:240px;margin:0 0 10px}
 .card{background:var(--card);border-radius:16px;padding:20px;margin-bottom:16px;box-shadow:0 1px 6px rgba(0,0,0,.05)}
-.tag{display:inline-block;font-family:Inter,system-ui,sans-serif;font-size:11px;font-weight:600;letter-spacing:.08em;text-transform:uppercase;color:var(--green);background:var(--green-soft);padding:3px 9px;border-radius:999px}
-.card h3{font-family:Fraunces,Georgia,serif;font-size:22px;margin:8px 0 2px}
+.tag{display:inline-block;font-family:var(--font);font-size:11px;font-weight:600;letter-spacing:.08em;text-transform:uppercase;color:var(--green);background:var(--green-soft);padding:3px 9px;border-radius:999px}
+.card h3{font-family:var(--font);font-size:22px;margin:8px 0 2px}
 .meta{color:var(--muted);font-size:14px;margin-bottom:12px}
 .cols{display:grid;grid-template-columns:1fr 1.4fr;gap:24px}
 @media(max-width:700px){.cols{grid-template-columns:1fr}}
@@ -218,6 +218,251 @@ textarea{min-height:80px;resize:vertical}
   .actions .btn:first-child{flex-basis:100%}
   .card{padding:16px}
 }
+
+/* ---------- iOS-style look: flat grouped cards, hairlines, system type, gentle motion ---------- */
+html,body{overflow-x:clip}
+body{-webkit-tap-highlight-color:transparent;-webkit-font-smoothing:antialiased;text-rendering:optimizeLegibility}
+button,a,label,summary{touch-action:manipulation}
+h2{font-weight:700;letter-spacing:-.022em}
+.card,.mealcard,.recitem{box-shadow:none}
+.mealcard,.card,.recitem{border-radius:18px}
+
+/* Press feedback */
+.btn,.icon,.tool,.mealhead,.recitem,.dayopt,.daytabs button,.seg button,.ranges button,.tabs a,.month .cell,.link,summary{transition:transform .22s var(--ease),background-color .18s,border-color .18s,color .18s}
+.btn:active:not(:disabled),.icon:active,.tool:active,.dayopt:active:not(:disabled),.daytabs button:active,.seg button:active,.ranges button:active,.month .cell:active{transform:scale(.96)}
+.mealhead:active,.recitem:active{transform:scale(.985)}
+.tabs a:active{transform:scale(.92)}
+
+/* Sticky controls, frosted */
+nav,header{-webkit-backdrop-filter:saturate(180%) blur(20px);backdrop-filter:saturate(180%) blur(20px)}
+nav{background:rgba(245,244,240,.78)}
+
+.btn{border-radius:12px}
+.btn.ghost{border-color:var(--line)}
+.icon{border-color:transparent;background:transparent;border-radius:50%}
+.icon:hover{background:var(--sand)}
+.link{text-decoration:none}
+select,input[type=text],input[type=number],input[type=date],input[type=time],input[type=email],input[type=password],input[type=search],textarea{border:1px solid var(--line);border-radius:12px;transition:border-color .18s,box-shadow .18s}
+select:focus,input:focus,textarea:focus{outline:none;border-color:var(--green);box-shadow:0 0 0 3px rgba(47,93,58,.14)}
+input[type=checkbox]:focus,input[type=radio]:focus{box-shadow:none}
+input[type=checkbox]:focus-visible{outline:2px solid var(--green);outline-offset:2px}
+
+/* Segmented controls: the highlight slides between options */
+.seg{position:relative;isolation:isolate;background:rgba(118,118,128,.12);border-radius:10px;padding:2px;gap:0}
+.seg button{position:relative;border-radius:8px;padding:6px 14px;color:var(--ink)}
+.seg button.on{background:transparent;box-shadow:none;color:var(--ink)}
+.seg button.on::before{content:"";position:absolute;inset:0;z-index:-1;background:var(--card);border-radius:8px;box-shadow:0 2px 6px rgba(0,0,0,.1),0 0 1px rgba(0,0,0,.12);transform-origin:left}
+.slid::before{animation:thumb .36s var(--ease)}
+@keyframes thumb{from{transform:translateX(var(--from-x,0)) scaleX(var(--from-w,1))}}
+
+/* Day strip */
+.daytabs{position:relative;isolation:isolate;gap:2px;margin-bottom:14px}
+.daytabs button{position:relative;border:none;background:transparent;border-radius:14px;padding:7px 2px 8px;font-size:12px;font-weight:600;color:var(--muted)}
+.daytabs button:hover{background:rgba(118,118,128,.08)}
+.daytabs button small{font-size:18px;font-weight:600;color:var(--ink);line-height:1.25;letter-spacing:-.01em}
+.daytabs .dmon{font-size:12px;font-weight:500;color:var(--muted)}
+.daytabs button.today small{color:var(--accent)}
+.daytabs button.on{background:transparent;color:#fff}
+.daytabs button.on small,.daytabs button.on .dmon{color:#fff}
+.daytabs button.on::before{content:"";position:absolute;inset:0;z-index:-1;background:var(--green);border-radius:14px;transform-origin:left}
+.daytabs button.slid{animation:inkin .28s ease}
+@keyframes inkin{from{color:var(--muted)}}
+.pips{margin-top:4px}
+.pips i{width:4px;height:4px;border:none;background:rgba(60,60,67,.2)}
+.pips i.f{background:var(--green)}
+.daytabs button.on .pips i{background:rgba(255,255,255,.4)}
+
+/* Chips */
+.ranges button{border:none;background:rgba(118,118,128,.12);transition:transform .22s var(--ease)}
+.ranges button.on{border:none}
+.checks input{position:absolute;opacity:0;pointer-events:none}
+.checks label{position:relative;border-color:transparent;background:rgba(118,118,128,.12);padding:7px 13px;transition:background-color .18s,color .18s,transform .22s var(--ease)}
+.checks label:active{transform:scale(.96)}
+.checks label:has(input:checked){background:var(--green);border-color:transparent;color:#fff}
+.checks label:has(input:focus-visible){outline:2px solid var(--green);outline-offset:2px}
+
+/* Segmented choice in settings */
+.checks.segpick{display:grid;grid-auto-flow:column;grid-auto-columns:minmax(0,1fr);gap:0;padding:2px;background:rgba(118,118,128,.12);border-radius:10px;max-width:400px}
+.segpick label{justify-content:center;background:transparent;border-radius:8px;padding:6px 4px;font-size:14px}
+.checks.segpick label:has(input:checked){background:var(--card);color:var(--ink);font-weight:600;box-shadow:0 2px 6px rgba(0,0,0,.1),0 0 1px rgba(0,0,0,.12)}
+
+/* Switches */
+.switches{display:grid}
+.switches label{display:flex;flex-direction:row-reverse;align-items:center;justify-content:space-between;gap:14px;margin:0;padding:9px 0;font-weight:500;cursor:pointer}
+.switches label+label{border-top:1px solid var(--line)}
+.toggle{flex-direction:row-reverse;gap:9px}
+.switches input,.toggle input{-webkit-appearance:none;appearance:none;flex:none;position:relative;width:51px;height:31px;margin:0;border-radius:999px;background:rgba(120,120,128,.2);cursor:pointer;transition:background-color .25s}
+.switches input::after,.toggle input::after{content:"";position:absolute;top:2px;left:2px;width:27px;height:27px;border-radius:50%;background:#fff;box-shadow:0 3px 8px rgba(0,0,0,.15),0 1px 1px rgba(0,0,0,.16);transition:transform .3s var(--ease)}
+.switches input:checked,.toggle input:checked{background:var(--green)}
+.switches input:checked::after,.toggle input:checked::after{transform:translateX(20px)}
+
+/* Round ticks on the shopping list */
+.shopitem{border-bottom:1px solid var(--line);align-items:center;padding:10px 0}
+.shopitem input{-webkit-appearance:none;appearance:none;margin:0;width:24px;height:24px;border-radius:50%;border:1.5px solid rgba(60,60,67,.3);background:transparent;display:grid;place-items:center;cursor:pointer;transition:background-color .18s,border-color .18s}
+.shopitem input:checked{background:var(--green);border-color:var(--green)}
+.shopitem input:checked::after{content:"";width:6px;height:11px;margin-top:-2px;border:solid #fff;border-width:0 2px 2px 0;transform:rotate(45deg)}
+.shopitem.pop input{animation:pop .36s var(--spring)}
+@keyframes pop{0%{transform:scale(.7)}60%{transform:scale(1.14)}100%{transform:scale(1)}}
+.shop .card h4,.card>h4{color:var(--muted)}
+
+/* Hairlines in place of dashes */
+ul.ing li{border-bottom:1px solid var(--line)}
+.dayopt{border-color:var(--line)}
+.movepanel,.tool{border-color:var(--line)}
+
+/* Tucked-away sections */
+details>summary{list-style:none;cursor:pointer}
+details>summary::-webkit-details-marker{display:none}
+.setsec>summary,.slotmore>summary,.aiadd>summary{display:flex;align-items:center;justify-content:space-between;gap:10px}
+.setsec>summary::after,.slotmore>summary::after,.aiadd>summary::after{content:"›";flex:none;font-size:20px;line-height:1;color:var(--muted);transition:transform .28s var(--ease)}
+.setsec[open]>summary::after,.slotmore[open]>summary::after,.aiadd[open]>summary::after{transform:rotate(90deg)}
+.setsec>summary h3{margin:0}
+.setsec[open]>summary{margin-bottom:12px}
+.opening>:not(summary){animation:reveal .3s var(--ease)}
+.slotmore{margin-top:16px;padding-top:12px;border-top:1px solid var(--line)}
+.slotmore>summary{font-weight:600;font-size:14px;color:var(--green)}
+.slotmore .slotact{margin-top:10px;padding-top:0;border-top:none}
+
+/* Screens coming and going */
+@keyframes reveal{from{opacity:0;transform:translateY(-6px)}}
+@keyframes enter{from{opacity:0;transform:translateY(8px)}}
+@keyframes push{from{opacity:0;transform:translateX(28px)}}
+@keyframes pop-back{from{opacity:0;transform:translateX(-28px)}}
+@keyframes from-right{from{opacity:0;transform:translateX(22px)}}
+@keyframes from-left{from{opacity:0;transform:translateX(-22px)}}
+main.enter{animation:enter .32s var(--ease)}
+main.push{animation:push .36s var(--ease)}
+main.pop{animation:pop-back .36s var(--ease)}
+.daypane.from-right{animation:from-right .34s var(--ease)}
+.daypane.from-left{animation:from-left .34s var(--ease)}
+.justopen .mealbody{animation:reveal .32s var(--ease)}
+.justopen .chev{animation:chevopen .28s var(--ease)}
+@keyframes chevopen{from{transform:rotate(0)}}
+.bar span.grow{animation:grow .5s var(--ease)}
+@keyframes grow{from{width:var(--from,0)}}
+
+/* Toast and busy overlay */
+#toast{background:rgba(44,44,46,.92);-webkit-backdrop-filter:blur(20px);backdrop-filter:blur(20px);border-radius:999px;padding:10px 18px;transform:translate(-50%,14px) scale(.97);transition:opacity .22s,transform .42s var(--spring)}
+#toast.show{transform:translate(-50%,0) scale(1)}
+#toast button{text-decoration:none}
+#busy{background:rgba(245,244,240,.6);-webkit-backdrop-filter:blur(14px);backdrop-filter:blur(14px)}
+.busybox{border-radius:20px;animation:sheetpop .36s var(--spring)}
+@keyframes sheetpop{from{opacity:0;transform:scale(.92)}}
+
+/* Action sheet */
+#sheet[hidden]{display:none}
+#sheet{position:fixed;inset:0;z-index:30}
+.sheetback{position:absolute;inset:0;background:rgba(0,0,0,.32);opacity:0;transition:opacity .3s ease}
+.sheetbox{position:absolute;left:8px;right:8px;bottom:calc(8px + env(safe-area-inset-bottom));max-width:480px;margin:0 auto;display:grid;gap:8px;transform:translateY(calc(100% + 24px));transition:transform .36s var(--ease)}
+#sheet.show .sheetback{opacity:1}
+#sheet.show .sheetbox{transform:none}
+.sheetgroup{background:rgba(255,255,255,.92);-webkit-backdrop-filter:blur(24px);backdrop-filter:blur(24px);border-radius:14px;overflow:hidden}
+.sheettitle{padding:12px 16px;text-align:center;font-size:13px;font-weight:600;color:var(--muted)}
+.sheetgroup button,.sheetcancel{display:block;width:100%;min-height:56px;border:none;background:transparent;font-size:18px;color:var(--green);cursor:pointer}
+.sheetgroup button{border-top:1px solid var(--line)}
+.sheetgroup button:active:not(:disabled){background:rgba(118,118,128,.14)}
+.sheetgroup button.danger{color:var(--warn)}
+.sheetgroup button:disabled{color:var(--muted);opacity:.6;cursor:default}
+.sheetcancel{background:#fff;border-radius:14px;font-weight:600}
+
+.morebtn{display:none;flex:none;align-items:center;justify-content:center}
+.planbar{display:flex;align-items:center;gap:6px}
+.planbar .progress{flex:1;min-width:0}
+
+/* Touch screens keep :hover after a tap, so undo the colour changes there */
+@media(hover:none){
+  .mealhead:hover .mealtitle{color:inherit}
+  .btn:hover:not(:disabled){background:var(--green)}
+  .btn.ghost:hover:not(:disabled){background:var(--card);border-color:var(--line)}
+  .btn.quiet:hover:not(:disabled){background:transparent;color:var(--muted)}
+  .tool:hover:not(.on){background:var(--card);border-color:var(--line)}
+  .tool.danger:hover{background:var(--card);border-color:var(--line)}
+  .dayopt:hover:not(:disabled){background:var(--card);border-color:var(--line)}
+  .daytabs button:hover,.icon:hover{background:transparent}
+  .recitem:hover{border-color:transparent}
+  .month .cell:hover{border-color:transparent}
+}
+
+/* Phones: one compact header, one thing at a time */
+@media(max-width:640px){
+  :root{--nav-h:56px}
+  html{-webkit-text-size-adjust:100%}
+  header{position:sticky;top:0;z-index:6;max-width:none;padding:calc(env(safe-area-inset-top) + 10px) 16px 8px;background:rgba(245,244,240,.78)}
+  h1{font-size:23px}
+  .brand img{width:26px;height:26px;border-radius:7px}
+  .sub,.desktop-only{display:none}
+  main{padding:8px 16px calc(var(--nav-h) + env(safe-area-inset-bottom) + 36px)}
+  #banner,#installbar{padding:0 16px}
+  h2{font-size:28px}
+  nav{border-top:1px solid var(--line);background:rgba(250,249,246,.82)}
+  .tabs{padding:3px 4px}
+  .tabs a{padding:5px 2px 4px;font-size:10px;font-weight:500;letter-spacing:.01em}
+  .tabs a.on{background:none;color:var(--green)}
+  .tabs a svg{width:24px;height:24px}
+  .tabs a.on svg{animation:tabpop .34s var(--spring)}
+
+  .toolbar{gap:8px;margin-bottom:8px}
+  .toolbar>.seg{width:100%}
+  .toolbar>.seg button{flex:1}
+  .navdate{gap:0}
+  .navdate .lbl{font-size:15px;font-weight:600;letter-spacing:-.01em}
+  .navdate .link{padding:6px 2px 6px 8px;font-size:15px}
+  .planbar{margin-bottom:6px}
+  .planbar .progress{margin:0}
+  .progress-label{font-size:12px;font-weight:500;margin-bottom:4px}
+  .bar{height:4px}
+  .morebtn{display:inline-flex}
+  .actions{margin-bottom:10px}
+  .actions .btn{width:100%;padding:12px 14px;font-size:15px}
+  .actions .btn.ghost,.actions .btn.quiet,.actions .btn.alldone{display:none}
+  .actions:not(:has(.btn:not(.ghost):not(.quiet):not(.alldone))){display:none}
+  .daytabs{margin:0 -4px 12px}
+  .daytabs button{flex:1 0 44px}
+  .dmon{display:none}
+  .dayh{font-size:20px;margin-bottom:10px;gap:4px 8px}
+  .daykcal{margin-left:0;flex-basis:100%;font-weight:500}
+
+  .mealcard{margin-bottom:8px}
+  .mealhead{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:1px 10px;padding:12px 14px}
+  .mealname{flex:none;grid-column:1;font-size:11px}
+  .mealtitle{grid-column:1;font-size:16px;font-weight:600}
+  .mealtitle.none{font-size:15px}
+  .chev{grid-column:2;grid-row:1 / span 2;align-self:center}
+  .mealbody{padding:0 14px 14px}
+  .meta{margin-bottom:10px}
+  .cols{gap:16px}
+  .tool{min-height:38px;font-size:13px;border:none;background:rgba(118,118,128,.1)}
+  .tool svg{width:17px;height:17px}
+  .tool.danger{background:var(--warn-soft)}
+
+  .ranges{flex-wrap:nowrap;overflow-x:auto;scrollbar-width:none;margin:0 -16px 8px;padding:0 16px 2px}
+  .ranges::-webkit-scrollbar,.seg::-webkit-scrollbar,.daytabs::-webkit-scrollbar{display:none}
+  .ranges button{flex:none}
+  .shophead{justify-content:space-between}
+  .shophead .progress{flex-basis:100%}
+  .shophead .toggle{flex:1;justify-content:space-between}
+  .toolbar .btn[data-act="copy-list"]{padding:7px 13px;border-radius:999px;background:var(--green-soft);color:var(--green)}
+  .shop{grid-template-columns:minmax(0,1fr);gap:10px}
+  .shop .card{padding:12px 14px 4px}
+  .shopitem:last-child{border-bottom:none}
+
+  .recfilters{display:grid;gap:8px}
+  .recfilters .seg{width:100%}
+  .recfilters .seg button{flex:1 0 auto;padding:6px 10px}
+  .aiadd{padding:14px}
+  .reclist{display:block;background:var(--card);border-radius:18px;overflow:hidden}
+  .recitem{position:relative;border-radius:0;background:transparent;padding:11px 34px 11px 14px;border:none;border-bottom:1px solid var(--line)}
+  .recitem:last-child{border-bottom:none}
+  .recitem::after{content:"›";position:absolute;right:14px;top:50%;transform:translateY(-50%);font-size:20px;color:var(--muted)}
+  .recitem .tag{padding:0;background:none;color:var(--accent);font-size:10px}
+  .recitem .t{margin:1px 0 0;line-height:1.3}
+
+  .setsec{padding:14px 16px;margin-bottom:8px}
+  .setsec>summary h3{font-size:17px;font-weight:600}
+  .form .help{font-size:12px}
+}
+@keyframes tabpop{0%{transform:scale(.82)}60%{transform:scale(1.08)}100%{transform:scale(1)}}
+
 @media(prefers-reduced-motion:reduce){
-  *{animation-duration:.001ms!important;animation-iteration-count:1!important;transition-duration:.001ms!important}
+  *,*::before,*::after{animation-duration:.001ms!important;animation-iteration-count:1!important;transition-duration:.001ms!important}
 }

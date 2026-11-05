@@ -41,6 +41,7 @@ const ICON_MOVE=svg('<path d="M4 12h15"/><path d="M13 6l6 6-6 6"/>');
 const ICON_SWITCH=svg('<path d="M3 8h17"/><path d="M16 4l4 4-4 4"/><path d="M21 16H4"/><path d="M8 12l-4 4 4 4"/>');
 const ICON_REMOVE=svg('<path d="M4 7h16"/><path d="M9 7V4h6v3"/><path d="M6 7l1 13h10l1-13"/><path d="M10 11v5"/><path d="M14 11v5"/>');
 const ICON_CLOSE=svg('<path d="M6 6l12 12"/><path d="M18 6L6 18"/>');
+const ICON_MORE=svg('<circle cx="5" cy="12" r="1.4" fill="currentColor"/><circle cx="12" cy="12" r="1.4" fill="currentColor"/><circle cx="19" cy="12" r="1.4" fill="currentColor"/>');
 const TABS=[
   ["plan","Plan",svg('<rect x="3" y="5" width="18" height="16" rx="2"/><path d="M3 10h18M8 3v4M16 3v4"/>')],
   ["shopping","Shopping",svg('<path d="M6 8h12l1 13H5L6 8z"/><path d="M9 8V6a3 3 0 0 1 6 0v2"/>')],
@@ -52,7 +53,7 @@ const TABS=[
 const S={recipes:{},days:{},settings:null,checks:{},profile:null,pushKey:null,prices:{}};
 let today=new Date(); today.setHours(0,0,0,0);
 const ui={tab:"plan",mode:"week",anchor:mondayOf(today),day:ymd(today),meal:0,shopRange:"week",shopFrom:null,shopTo:null,hideDone:false,recFilter:"All",recSearch:"",openRecipe:null,aiHint:"",delArm:null,
-  loaded:false,loadFailed:false,dirty:false,profileDirty:false,settingsDraft:null,aiOpen:null,newDesc:"",newType:"Lunch",addDate:null,push:"checking",slotMove:null};
+  loaded:false,loadFailed:false,dirty:false,profileDirty:false,settingsDraft:null,aiOpen:null,newDesc:"",newType:"Lunch",addDate:null,push:"checking",slotMove:null,secOpen:{},slotMoreOpen:false,justChecked:null};
 
 /* ---------- utils ---------- */
 function esc(s){return String(s??"").replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;")}
@@ -230,8 +231,95 @@ function focusKey(el){
 function skeleton(){
   return `<div class="skel" aria-busy="true" aria-label="Loading your plan"><div class="skel-line" style="width:45%"></div><div class="skel-block" style="height:64px"></div><div class="skel-block"></div><div class="skel-block"></div></div>`;
 }
+/* ---------- motion ---------- */
+// Rendering replaces the DOM, so CSS transitions can't run between states. These remember
+// what was on screen and start an animation only for the thing that actually changed.
+const motion={view:null,day:null,open:null,slides:{},bar:null};
+function stripScroll(){const out={};main.querySelectorAll("[data-slide]").forEach(el=>{out[el.dataset.slide]=el.scrollLeft});return out}
+function playOn(el,cls){el.classList.remove("enter","push","pop");void el.offsetWidth;el.classList.add(cls)}
+function afterRender(strips){
+  const rec=ui.tab==="recipes"?ui.openRecipe||"":"";
+  const view=ui.tab+"|"+(ui.tab==="plan"?ui.mode:"")+"|"+rec;
+  const prevView=motion.view,sameView=prevView===view;
+  if(prevView&&!sameView){
+    const samePage=prevView.split("|")[0]===ui.tab&&ui.tab==="recipes";
+    playOn(main,samePage?(rec?"push":"pop"):"enter");
+  }
+  motion.view=view;
+  const pane=main.querySelector(".daypane");
+  if(pane&&sameView&&motion.day&&motion.day!==ui.day)pane.classList.add(ui.day>motion.day?"from-right":"from-left");
+  const open=ui.day+"|"+ui.meal;
+  if(sameView&&motion.day===ui.day&&motion.open!==open)main.querySelector(".mealcard.open")?.classList.add("justopen");
+  motion.day=ui.day;motion.open=open;
+  main.querySelectorAll("[data-slide]").forEach(el=>{
+    const key=el.dataset.slide,on=el.querySelector(".on");
+    if(strips[key])el.scrollLeft=strips[key];
+    if(!on)return;
+    const x=on.offsetLeft,w=on.offsetWidth,prev=motion.slides[key];
+    if(x<el.scrollLeft||x+w>el.scrollLeft+el.clientWidth)el.scrollLeft=x-(el.clientWidth-w)/2;
+    if(prev&&prev.x!==x){on.style.setProperty("--from-x",prev.x-x+"px");on.style.setProperty("--from-w",prev.w/w);on.classList.add("slid")}
+    motion.slides[key]={x,w};
+  });
+  const fill=main.querySelector(".bar span"),bar=fill&&fill.parentElement;
+  if(fill){
+    const pct=+bar.getAttribute("aria-valuemax")?bar.getAttribute("aria-valuenow")/bar.getAttribute("aria-valuemax")*100:0;
+    if(motion.bar&&motion.bar.tab===ui.tab&&motion.bar.pct!==pct){fill.style.setProperty("--from",motion.bar.pct+"%");fill.classList.add("grow")}
+    motion.bar={tab:ui.tab,pct};
+  }
+  ui.justChecked=null;
+}
+// Settings sections start closed on phones, so the page reads as a short list
+function secOpen(k){const v=ui.secOpen[k];return (v===undefined?!matchMedia("(max-width:640px)").matches:v)?"open":""}
+main.addEventListener("toggle",e=>{
+  const d=e.target;if(d.tagName!=="DETAILS")return;
+  if(d.dataset.sec)ui.secOpen[d.dataset.sec]=d.open;
+  if(d.classList.contains("slotmore"))ui.slotMoreOpen=d.open;
+  d.classList.toggle("opening",d.open);
+},true);
+
+// Swipe across a day to move to the next or previous one in the week
+let touch=null;
+main.addEventListener("touchstart",e=>{
+  const t=e.touches[0];
+  touch=e.touches.length===1&&ui.tab==="plan"&&ui.mode==="week"&&t.clientX>24&&!e.target.closest(".daytabs,.movepanel,input,select,textarea")?{x:t.clientX,y:t.clientY}:null;
+},{passive:true});
+main.addEventListener("touchend",e=>{
+  if(!touch)return;
+  const t=e.changedTouches[0],dx=t.clientX-touch.x,dy=t.clientY-touch.y;touch=null;
+  if(Math.abs(dx)<70||Math.abs(dy)>40)return;
+  const ids=weekDates(ui.anchor).map(ymd),next=ids[ids.indexOf(ui.day)+(dx<0?1:-1)];
+  if(next){ui.day=next;ui.slotMove=null;render()}
+},{passive:true});
+
+/* ---------- action sheet ---------- */
+const sheet=document.getElementById("sheet");
+let sheetReturn=null,sheetTimer=null;
+// Each option stands in for a button on the page, so it does what that button does
+function openSheet(title,acts){
+  clearTimeout(sheetTimer);sheetReturn=document.activeElement;
+  sheet.innerHTML=`<div class="sheetback" data-close></div><div class="sheetbox" role="dialog" aria-modal="true" aria-label="${esc(title)}"><div class="sheetgroup"><div class="sheettitle">${esc(title)}</div>${acts.map(([act,danger])=>{const b=main.querySelector(`[data-act="${act}"]`);return `<button type="button" class="${danger?"danger":""}" data-sheet="${act}" ${b&&!b.disabled?"":"disabled"}>${esc(b?b.textContent.trim():act)}</button>`}).join("")}</div><button type="button" class="sheetcancel" data-close>Cancel</button></div>`;
+  sheet.hidden=false;void sheet.offsetWidth;sheet.classList.add("show");
+  sheet.querySelector("button:not(:disabled)").focus({preventScroll:true});
+}
+function closeSheet(){
+  sheet.classList.remove("show");sheetTimer=setTimeout(()=>{sheet.hidden=true;sheet.innerHTML=""},340);
+  (sheetReturn&&document.contains(sheetReturn)&&sheetReturn!==document.body?sheetReturn:main.querySelector(".morebtn"))?.focus({preventScroll:true});
+}
+sheet.addEventListener("click",e=>{
+  const act=e.target.closest("[data-sheet]")?.dataset.sheet;
+  if(act||e.target.closest("[data-close]"))closeSheet();
+  if(act)main.querySelector(`[data-act="${act}"]`)?.click();
+});
+sheet.addEventListener("keydown",e=>{
+  if(e.key==="Escape"){closeSheet();return}
+  if(e.key!=="Tab")return;
+  const all=[...sheet.querySelectorAll("button:not(:disabled)")],i=all.indexOf(document.activeElement);
+  e.preventDefault();all[(i+(e.shiftKey?-1:1)+all.length)%all.length].focus();
+});
+
 function render(){
   renderNav();
+  const strips=stripScroll();
   const a=document.activeElement,fk=a&&main.contains(a)?focusKey(a):null;
   if(ui.dirty&&document.getElementById("s-excl"))ui.settingsDraft=readSettings();
   if(!ui.loaded){
@@ -243,6 +331,7 @@ function render(){
   else if(ui.tab==="recipes") main.innerHTML=renderRecipes();
   else main.innerHTML=renderSettings();
   if(fk){const el=main.querySelector(fk)||main.querySelector('.mealhead[aria-expanded="true"]');if(el)el.focus({preventScroll:true})}
+  afterRender(strips);
 }
 
 function kcal(n){return "≈"+Number(n).toLocaleString()+" kcal"}
@@ -285,12 +374,12 @@ function renderPlan(){
   let filled=0;dates.forEach(d=>st.meals.forEach(m=>{if(recipeAt(ymd(d),m))filled++}));
   const empty=total-filled,anySlots=dates.some(d=>st.meals.some(m=>slotsOf(ymd(d))[m]));
   let h=`<div class="toolbar">
-    <div class="seg"><button data-mode="week" class="${isWeek?"on":""}" aria-pressed="${isWeek}">Week</button><button data-mode="month" class="${!isWeek?"on":""}" aria-pressed="${!isWeek}">Month</button></div>
+    <div class="seg" data-slide="mode"><button data-mode="week" class="${isWeek?"on":""}" aria-pressed="${isWeek}">Week</button><button data-mode="month" class="${!isWeek?"on":""}" aria-pressed="${!isWeek}">Month</button></div>
     <div class="navdate"><button class="icon" data-nav="-1" aria-label="Previous ${isWeek?"week":"month"}">‹</button><span class="lbl" aria-live="polite">${label}</span><button class="icon" data-nav="1" aria-label="Next ${isWeek?"week":"month"}">›</button><button class="link" data-nav="0">Today</button></div>
   </div>
-  ${total?progress(filled,total,`${filled} of ${total} meals planned`):""}
+  <div class="planbar">${total?progress(filled,total,`${filled} of ${total} meals planned`):""}<button class="icon morebtn" data-act="plan-more" aria-haspopup="dialog" aria-label="More plan actions">${ICON_MORE}</button></div>
   <div class="actions">
-    <button class="btn" data-act="ai-fill" ${empty?"":"disabled"}>✨ ${empty?`Fill ${empty} empty meal${empty>1?"s":""} with AI`:"Everything's planned"}</button>
+    <button class="btn ${empty?"":"alldone"}" data-act="ai-fill" ${empty?"":"disabled"}>✨ ${empty?`Fill ${empty} empty meal${empty>1?"s":""} with AI`:"Everything's planned"}</button>
     <button class="btn ghost" data-act="lib-fill" ${empty?"":"disabled"}>Fill from my recipes</button>
     <button class="btn quiet" data-act="clear" ${anySlots?"":"disabled"}>Clear ${isWeek?"week":"month"}</button>
   </div>`;
@@ -303,11 +392,11 @@ function renderWeek(st){
   const ids=dates.map(ymd),todayId=ymd(today);
   if(!ids.includes(ui.day)) ui.day=ids.includes(todayId)?todayId:ids[0];
   if(ui.meal>=st.meals.length) ui.meal=0;
-  let h=`<div class="daytabs">${dates.map(d=>{const id=ymd(d);const n=st.meals.filter(m=>recipeAt(id,m)).length;
-    return `<button data-day="${id}" class="${id===ui.day?"on":""} ${id===todayId?"today":""}" aria-pressed="${id===ui.day}" aria-label="${WD_L[wdIdx(d)]} ${shortDate(d)}${id===todayId?", today":""}, ${n} of ${st.meals.length} meals planned">${WD[wdIdx(d)]}<small>${shortDate(d)}</small><span class="pips" aria-hidden="true">${st.meals.map(m=>`<i class="${recipeAt(id,m)?"f":""}"></i>`).join("")}</span></button>`}).join("")}</div>`;
+  let h=`<div class="daytabs" data-slide="day">${dates.map(d=>{const id=ymd(d);const n=st.meals.filter(m=>recipeAt(id,m)).length;
+    return `<button data-day="${id}" class="${id===ui.day?"on":""} ${id===todayId?"today":""}" aria-pressed="${id===ui.day}" aria-label="${WD_L[wdIdx(d)]} ${shortDate(d)}${id===todayId?", today":""}, ${n} of ${st.meals.length} meals planned">${WD[wdIdx(d)]}<small>${d.getDate()}<span class="dmon"> ${MONTHS[d.getMonth()]}</span></small><span class="pips" aria-hidden="true">${st.meals.map(m=>`<i class="${recipeAt(id,m)?"f":""}"></i>`).join("")}</span></button>`}).join("")}</div>`;
   const date=ui.day,dd=parse(date);
   const dayRecipes=st.meals.map(m=>recipeAt(date,m)).filter(Boolean),leftCal=leftoverCalories(date,st),dayCal=dayRecipes.reduce((n,r)=>n+(r.calories||0),0)+leftCal,noCal=dayRecipes.filter(r=>!r.calories).length;
-  h+=`<h2 class="dayh">${WD_L[wdIdx(dd)]} ${shortDate(dd)}${date===todayId?' <span class="tag">Today</span>':""}${(st.showCalories||st.maxCalories)&&dayCal?`<span class="daykcal ${st.maxCalories&&dayCal>st.maxCalories?"over":""}">${kcal(dayCal)}${leftCal?" with leftovers":""}${noCal?` + ${noCal} unknown`:""}${st.maxCalories&&dayCal>st.maxCalories?` · ${(dayCal-st.maxCalories).toLocaleString()} over your limit`:""}</span>`:""}</h2>`;
+  h+=`<div class="daypane"><h2 class="dayh">${WD_L[wdIdx(dd)]} ${shortDate(dd)}${date===todayId?' <span class="tag">Today</span>':""}${(st.showCalories||st.maxCalories)&&dayCal?`<span class="daykcal ${st.maxCalories&&dayCal>st.maxCalories?"over":""}">${kcal(dayCal)}${leftCal?" with leftovers":""}${noCal?` + ${noCal} unknown`:""}${st.maxCalories&&dayCal>st.maxCalories?` · ${(dayCal-st.maxCalories).toLocaleString()} over your limit`:""}</span>`:""}</h2>`;
   h+=st.meals.map((meal,i)=>{
     const r=recipeAt(date,meal),open=i===ui.meal,bad=r&&violates(r).length;
     return `<section class="mealcard ${open?"open":""}">
@@ -318,7 +407,7 @@ function renderWeek(st){
       </button>
       ${open?`<div class="mealbody">${slotTools(date,meal,r)}${r?recipeHTML(r,{showType:false,showTitle:false,date,meal}):`<div class="empty"><b>No ${esc(meal.toLowerCase())} planned</b>Pick one of your recipes or ask AI for a new idea.</div>`}${slotActions(date,meal,r)}</div>`:""}
     </section>`;
-  }).join("");
+  }).join("")+"</div>";
   return h;
 }
 function mealSub(r,date,meal,st){
@@ -352,13 +441,14 @@ function movePanel(m,r){
 function slotActions(date,meal,r){
   const opts=Object.values(S.recipes).filter(x=>x.mealType===meal).sort((a,b)=>a.title.localeCompare(b.title))
     .map(x=>`<option value="${esc(x.id)}" ${r&&r.id===x.id?"selected":""}>${violates(x).length?"⚠ ":""}${esc(x.title)}</option>`).join("");
-  return `<div class="slotact">
+  const body=`<div class="slotact">
     <label class="field"><span>${r?"Swap for another recipe":"Choose from my recipes"}</span>
       <select data-pick="${date}|${esc(meal)}" ${opts?"":"disabled"}><option value="">${opts?"Select a recipe…":"No saved "+esc(meal.toLowerCase())+" recipes yet"}</option>${opts}</select></label>
     <form class="aiform"><label class="field"><span>Or ask AI for a new idea</span>
       <input type="text" id="hint" placeholder="Optional, e.g. something with beef" value="${esc(ui.aiHint)}"></label>
       <button class="btn" data-act="ai-slot" data-date="${date}" data-meal="${esc(meal)}">✨ New idea</button></form>
   </div>`;
+  return r?`<details class="slotmore" ${ui.slotMoreOpen?"open":""}><summary>Swap or get a new idea</summary>${body}</details>`:body;
 }
 
 function renderMonth(st){
@@ -376,7 +466,7 @@ function renderMonth(st){
     if(d>last&&wdIdx(d)===0)break;
   }
   const legend=MEAL_TYPES.filter(m=>st.meals.includes(m)).map(m=>`${MEAL_SHORT[m]} = ${m}`).join(" · ");
-  return h+`</div><p class="muted" style="margin-top:10px">${legend}. Tap a day to see its recipes.</p>`;
+  return h+`</div><p class="muted" style="margin-top:10px"><span class="desktop-only">${legend}. </span>Tap a day to see its recipes.</p>`;
 }
 
 /* ---------- shopping ---------- */
@@ -453,9 +543,9 @@ function renderShopping(){
   const rk=ymd(from)+"_"+ymd(to);
   const ranges=[["week","This week"],["next","Next week"],["2w","2 weeks"],["month","This month"],["nmonth","Next month"],["custom","Custom"]];
   let h=`<div class="toolbar"><h2>Shopping list</h2><button class="btn" data-act="copy-list" ${meals?"":"disabled"}>Copy list</button></div>
-  <div class="ranges">${ranges.map(([k,l])=>`<button data-range="${k}" class="${ui.shopRange===k?"on":""}" aria-pressed="${ui.shopRange===k}">${l}</button>`).join("")}</div>`;
+  <div class="ranges" data-slide="range">${ranges.map(([k,l])=>`<button data-range="${k}" class="${ui.shopRange===k?"on":""}" aria-pressed="${ui.shopRange===k}">${l}</button>`).join("")}</div>`;
   if(ui.shopRange==="custom") h+=`<div class="custom"><label for="sfrom">From</label><input type="date" id="sfrom" value="${ymd(from)}"><label for="sto">to</label><input type="date" id="sto" value="${ymd(to)}"></div>`;
-  h+=`<p class="muted">${label}: ${shortDate(from)} – ${shortDate(to)} · ${meals} planned meal${meals===1?"":"s"}. Amounts are added up across every recipe in this range.</p>`;
+  h+=`<p class="muted">${label}: ${shortDate(from)} – ${shortDate(to)} · ${meals} planned meal${meals===1?"":"s"}.<span class="desktop-only"> Amounts are added up across every recipe in this range.</span></p>`;
   if(!meals) return h+`<div class="card empty"><b>Nothing planned in this range</b>Fill the days on the Plan tab and your list appears here.<div class="emptyact"><a class="btn ghost" href="#plan">Go to plan</a></div></div>`;
   const all=Object.values(items),done=all.filter(i=>S.checks[rk+"|"+i.name]).length;
   h+=`<div class="shophead">${progress(done,all.length,`${done} of ${all.length} items ticked`)}<label class="toggle"><input type="checkbox" id="hidedone" ${ui.hideDone?"checked":""}>Hide ticked</label></div>`;
@@ -466,7 +556,7 @@ function renderShopping(){
     const list=all.filter(i=>i.cat===cat&&!(ui.hideDone&&S.checks[rk+"|"+i.name])).sort((a,b)=>a.name.localeCompare(b.name));
     if(!list.length)continue;
     h+=`<section class="card"><h4>${cat}</h4>${list.map(it=>{const k=rk+"|"+it.name,on=!!S.checks[k];
-      return `<label class="shopitem ${on?"done":""}"><input type="checkbox" data-check="${esc(k)}" ${on?"checked":""}><span class="nm">${esc(cap(it.name))}</span><span class="amt">${esc(fmtAmt(it))}${settings().showPrices&&itemPrice(it)!=null?`<span class="price">${esc(money(itemPrice(it)))}</span>`:""}</span></label>`}).join("")}</section>`;
+      return `<label class="shopitem ${on?"done":""} ${ui.justChecked===k?"pop":""}"><input type="checkbox" data-check="${esc(k)}" ${on?"checked":""}><span class="nm">${esc(cap(it.name))}</span><span class="amt">${esc(fmtAmt(it))}${settings().showPrices&&itemPrice(it)!=null?`<span class="price">${esc(money(itemPrice(it)))}</span>`:""}</span></label>`}).join("")}</section>`;
   }
   return h+`</div>`;
 }
@@ -499,7 +589,7 @@ function renderRecipes(){
     <button class="btn" data-act="ai-create">Create recipe</button></div>
   </details>
   <div class="row recfilters"><input type="search" id="recsearch" aria-label="Search recipes" placeholder="Search recipes" value="${esc(ui.recSearch)}">
-    <div class="seg">${["All",...on].map(m=>`<button data-recf="${m}" class="${ui.recFilter===m?"on":""}" aria-pressed="${ui.recFilter===m}">${m}</button>`).join("")}</div></div>`;
+    <div class="seg" data-slide="recf">${["All",...on].map(m=>`<button data-recf="${m}" class="${ui.recFilter===m?"on":""}" aria-pressed="${ui.recFilter===m}">${m}</button>`).join("")}</div></div>`;
   if(!list.length) return h+(all.length
     ?`<div class="card empty"><b>No recipes match</b>Try another search or meal type.<div class="emptyact"><button class="btn ghost" data-act="clear-filters">Clear filters</button></div></div>`
     :`<div class="card empty"><b>No recipes here yet</b>Create one above, or use "Fill with AI" on the Plan tab.</div>`);
@@ -511,46 +601,41 @@ function renderSettings(){
   const st=ui.settingsDraft||settings();
   return `<h2>Settings</h2><p class="muted">These guide AI recipe ideas and which days and meals you plan.</p>
   <form id="settingsform" novalidate>
-  <section class="card form">
-    <h3>What to plan</h3>
+  <details class="card form setsec" data-sec="plan" ${secOpen("plan")}><summary><h3>What to plan</h3></summary>
     <label>Meals to plan</label><div class="help">Switched-off meals leave your plan and shopping list. Their recipes and planned days are kept, so switching one back on restores them.</div><div class="checks">${MEAL_TYPES.map(m=>`<label><input type="checkbox" name="s-meal" value="${m}" ${st.meals.includes(m)?"checked":""}>${m}</label>`).join("")}</div>
     <label>Days to plan</label><div class="checks">${WD.map((w,i)=>`<label><input type="checkbox" name="s-day" value="${i}" ${st.days.includes(i)?"checked":""}>${w}</label>`).join("")}</div>
     <label for="s-lp">Portions per lunch or dinner recipe</label><input type="number" id="s-lp" min="1" max="8" value="${esc(st.lunchPortions)}" style="width:100px">
     <label>Calories</label><div class="help">AI estimates per portion. They're a guide, not a measurement.</div>
-    <div class="checks"><label><input type="checkbox" id="s-cal" ${st.showCalories?"checked":""}>Show calories for each meal</label></div>
+    <div class="switches"><label><input type="checkbox" id="s-cal" ${st.showCalories?"checked":""}>Show calories for each meal</label></div>
     <label for="s-maxcal">Most calories per day</label><div class="help">AI splits this across the meals you plan and keeps each new recipe within its share, leaving room for a leftover portion when only one of lunch or dinner is planned. Your plan warns you when a day goes over. Leave blank for no limit.</div>
     <input type="number" id="s-maxcal" min="500" max="10000" step="50" inputmode="numeric" value="${esc(st.maxCalories??"")}" style="width:120px">
-  </section>
-  <section class="card form">
-    <h3>Measurements</h3>
+  </details>
+  <details class="card form setsec" data-sec="units" ${secOpen("units")}><summary><h3>Measurements</h3></summary>
     <div class="help">Recipes and your shopping list show amounts this way. Your saved recipes aren't changed, so you can switch back at any time.</div>
     <label>Instead of cups, use</label><div class="help">1 cup is 16 tablespoons or 240 ml. With tablespoons, anything over a cup shows in ml.</div>
-    <div class="checks">${[["cup","Cups"],["tbsp","Tablespoons"],["ml","Millilitres"]].map(([v,l])=>`<label><input type="radio" name="s-volume" value="${v}" ${st.units.volume===v?"checked":""}>${l}</label>`).join("")}</div>
+    <div class="checks segpick">${[["cup","Cups"],["tbsp","Tablespoons"],["ml","Millilitres"]].map(([v,l])=>`<label><input type="radio" name="s-volume" value="${v}" ${st.units.volume===v?"checked":""}>${l}</label>`).join("")}</div>
     <label>Weight</label>
-    <div class="checks">${[["g","Grams"],["oz","Ounces"]].map(([v,l])=>`<label><input type="radio" name="s-weight" value="${v}" ${st.units.weight===v?"checked":""}>${l}</label>`).join("")}</div>
+    <div class="checks segpick">${[["g","Grams"],["oz","Ounces"]].map(([v,l])=>`<label><input type="radio" name="s-weight" value="${v}" ${st.units.weight===v?"checked":""}>${l}</label>`).join("")}</div>
     <label>Oven temperature</label>
-    <div class="checks">${[["C","°C"],["F","°F"]].map(([v,l])=>`<label><input type="radio" name="s-temp" value="${v}" ${st.units.temp===v?"checked":""}>${l}</label>`).join("")}</div>
-  </section>
-  <section class="card form">
-    <h3>Shopping list</h3>
+    <div class="checks segpick">${[["C","°C"],["F","°F"]].map(([v,l])=>`<label><input type="radio" name="s-temp" value="${v}" ${st.units.temp===v?"checked":""}>${l}</label>`).join("")}</div>
+  </details>
+  <details class="card form setsec" data-sec="shop" ${secOpen("shop")}><summary><h3>Shopping list</h3></summary>
     <label>Prices</label><div class="help">AI estimates each item for where you shop, using a little of your API credit the first time an item appears. They're a guide, and the list shows a total.</div>
-    <div class="checks"><label><input type="checkbox" id="s-prices" ${st.showPrices?"checked":""}>Show estimated prices</label></div>
+    <div class="switches"><label><input type="checkbox" id="s-prices" ${st.showPrices?"checked":""}>Show estimated prices</label></div>
     <label for="s-cur">Currency</label><div class="help">A 3-letter code, like KES or USD.</div><input type="text" id="s-cur" maxlength="3" autocapitalize="characters" value="${esc(st.currency)}" style="width:100px;text-transform:uppercase">
     ${Object.keys(S.prices).length?'<label>Saved estimates</label><div class="help">Prices are estimated once per item. Start over if they look out of date, or you shop somewhere new.</div><button type="button" class="btn ghost" data-act="reprice">Estimate again</button>':""}
-  </section>
-  <section class="card form">
-    <h3>Cook times &amp; reminders</h3>
+  </details>
+  <details class="card form setsec" data-sec="cook" ${secOpen("cook")}><summary><h3>Cook times &amp; reminders</h3></summary>
     <label>When do you cook each meal?</label><div class="help">Prep reminders count back from these times.</div>
     <div class="timegrid">${MEAL_TYPES.map(m=>`<label class="field"><span>${m}</span><input type="time" id="s-time-${m}" value="${esc(st.mealTimes[m]||DEFAULTS.mealTimes[m])}"></label>`).join("")}</div>
     <label>What to remind me about</label>
-    <div class="checks"><label><input type="checkbox" id="s-rem-prep" ${st.reminders.prep?"checked":""}>Prep ahead, like marinating or soaking</label><label><input type="checkbox" id="s-rem-cook" ${st.reminders.cook?"checked":""}>Time to cook</label></div>
+    <div class="switches"><label><input type="checkbox" id="s-rem-prep" ${st.reminders.prep?"checked":""}>Prep ahead, like marinating or soaking</label><label><input type="checkbox" id="s-rem-cook" ${st.reminders.cook?"checked":""}>Time to cook</label></div>
     <label>Quiet hours</label><div class="help">A prep reminder that lands in these hours comes 30 minutes before they start. So an overnight chia soak reminds you the evening before.</div>
     <div class="timegrid"><label class="field"><span>From</span><input type="time" id="s-quiet-start" value="${esc(st.quietStart)}"></label><label class="field"><span>To</span><input type="time" id="s-quiet-end" value="${esc(st.quietEnd)}"></label></div>
     ${enrichHTML()}
     <label>Notifications on this device</label>${pushHTML()}
-  </section>
-  <section class="card form">
-    <h3>Food preferences</h3>
+  </details>
+  <details class="card form setsec" data-sec="food" ${secOpen("food")}><summary><h3>Food preferences</h3></summary>
     <label for="s-excl">Never include</label><div class="help">Comma-separated. Recipes containing these are flagged ⚠ and AI avoids them.</div>
     <input type="text" id="s-excl" value="${esc(st.exclusions.join(", "))}">
     <label for="s-diet">Diet &amp; goals</label><textarea id="s-diet">${esc(st.diet)}</textarea>
@@ -558,7 +643,7 @@ function renderSettings(){
     <label for="s-cuis">Cuisines to mix</label><div class="help">Comma-separated.</div>
     <input type="text" id="s-cuis" value="${esc(st.cuisines.join(", "))}">
     <label for="s-loc">Where you shop</label><input type="text" id="s-loc" value="${esc(st.location)}">
-  </section>
+  </details>
   <div class="savebar ${ui.dirty?"dirty":""}" id="savebar"><span class="muted" id="dirtynote" role="status">${ui.dirty?"Unsaved changes":""}</span><button class="btn" data-act="save-settings">Save settings</button></div>
   </form>
   ${installStatus()?`<section class="card form"><h3>Install Tiffin</h3>${installStatus()==="ios"?'<p class="muted">Tap Share in Safari, then Add to Home Screen.</p>':'<p class="muted">Open it from your home screen, like any other app.</p><button type="button" class="btn ghost" data-act="install">Install app</button>'}</section>`:""}
@@ -865,6 +950,7 @@ main.addEventListener("click",e=>{
       if(!r||(kind==="switch"&&!other))break;
       ui.slotMove=null;
       changeWithUndo({[date]:{[meal]:kind==="move"?null:other.id},[to]:{[meal]:r.id}},kind==="switch"?meal+" switched with "+day:meal+" moved to "+day);break}
+    case "plan-more": openSheet(ui.mode==="week"?"This week":"This month",[["lib-fill"],["clear",true]]);break;
     case "rm-slot": changeWithUndo({[ds.date]:{[ds.meal]:null}},ds.meal+" removed");break;
     case "copy-list":{
       const [from,to]=shopRange();const {items}=buildList(from,to);
@@ -918,7 +1004,7 @@ main.addEventListener("click",e=>{
 main.addEventListener("change",e=>{
   const t=e.target;
   if(t.dataset.pick!==undefined){const [date,meal]=t.dataset.pick.split("|");if(t.value)applyChanges({[date]:{[meal]:t.value}});return}
-  if(t.dataset.check!==undefined){const k=t.dataset.check;if(t.checked)S.checks[k]=true;else delete S.checks[k];
+  if(t.dataset.check!==undefined){const k=t.dataset.check;ui.justChecked=t.checked?k:null;if(t.checked)S.checks[k]=true;else delete S.checks[k];
     render();api("PUT","/api/checks",{key:k,on:t.checked}).then(j=>{if(!j)loadState()});return}
   if(t.id==="hidedone"){ui.hideDone=t.checked;render();return}
   if(t.id==="newtype"){ui.newType=t.value;return}
