@@ -2,12 +2,22 @@ import { NextResponse } from "next/server";
 import Anthropic from "@anthropic-ai/sdk";
 import { parseJson } from "@/lib/ai";
 import { requireUser } from "@/lib/auth";
+import { getPantry } from "@/lib/pantry";
 import { supabase } from "@/lib/supabase";
 import { CATS, DEFAULT_SETTINGS, MEAL_TYPES, Settings, cleanRecipe, leftoversAs, mealCalorieLimit } from "@/lib/types";
 
 export const maxDuration = 60;
 
-function buildPrompt(st: Settings, meal: string, n: number, hint: string, avoid: string[], paste: boolean) {
+/** Salt, pepper, oil and water are taken as being in any kitchen: keep in step with BASICS in planner-app.js. */
+function pantryRules(pantry: string[], only: boolean) {
+  return `They have these at home: ${JSON.stringify(pantry)}. Build every recipe around them. They also have salt, black pepper, cooking oil and water.
+${only
+    ? "Use NOTHING else: no other ingredient of any kind, not even herbs, spices, stock or sauces. They don't have to use everything on the list."
+    : "Use as many of them as make sense together, and at most 3 other ingredients that they would have to buy."}
+Leave out anything on the list that isn't food. Whenever you use something on the list, write its "item" exactly as it is written there, and put any detail in "note". Write the others as "salt", "black pepper", "cooking oil" and "water".`;
+}
+
+function buildPrompt(st: Settings, meal: string, n: number, hint: string, avoid: string[], paste: boolean, pantry = "") {
   const portions = meal === "Lunch" || meal === "Dinner"
     ? `${st.lunchPortions} portions (one for ${meal.toLowerCase()}, the rest for ${meal === "Lunch" ? "dinner" : "lunch"} or the next day)`
     : "1 portion";
@@ -15,6 +25,7 @@ function buildPrompt(st: Settings, meal: string, n: number, hint: string, avoid:
   return `You are a meal-planning assistant. ${paste
     ? "Turn the user's description or pasted recipe below into ONE structured recipe; if it is a full recipe, stay faithful to it."
     : `Create ${n} distinct ${meal} recipe${n > 1 ? "s" : ""}.`}
+${pantry}
 Meal type: ${meal}. Portions: ${portions}.
 Person: ${st.notes}
 Diet and goals: ${st.diet}
@@ -31,7 +42,7 @@ Return ONLY JSON in exactly this shape, no prose, no code fences:
 Ingredient rules: "item" is the plain shopping name in lower case (e.g. "chicken thigh", "onion", "brown rice", "maziwa mala"); preparation goes in "note" (e.g. "chopped"). "unit" is one of g, ml, tsp, tbsp, cup, pc, clove, bunch, tin, head, slice, handful, pinch (use metric; "pc" for countable items). "category" is one of: ${CATS.join(", ")} (spices, oils, sauces, salt go in Pantry). "group" is "" or a sub-heading like "Sauce". Steps: 3–8 short, clear sentences; write any amount with digits and a unit (e.g. "2 cups", "200 g", "180°C"). Tip: one short practical tip about prep, packing or storage. "calories" is your estimate for one portion. "prep" lists only steps that must start at least 1 hour before cooking, such as marinating, soaking, overnight oats, setting chia pudding or thawing, or is empty if there are none: "task" is a short instruction (e.g. "Soak the chia seeds") and "hoursBefore" is how long ahead to start, from 1 to 96.`;
 }
 
-/** Body: { meal, n, hint?, avoid?: string[], paste?: boolean } -> { recipes: Recipe[] } (not yet saved). */
+/** Body: { meal, n, hint?, avoid?: string[], paste?: boolean, pantry?: "only" | "extras" } -> { recipes: Recipe[] } (not yet saved). */
 export async function POST(req: Request) {
   const uid = await requireUser();
   if (uid instanceof NextResponse) return uid;
@@ -43,6 +54,12 @@ export async function POST(req: Request) {
   const hint = String(b.hint || "").slice(0, 4000);
   const avoid = Array.isArray(b.avoid) ? b.avoid.map(String).slice(0, 80) : [];
   const paste = !!b.paste;
+  let pantry = "";
+  if (b.pantry) {
+    const items = await getPantry(uid).catch(() => null);
+    if (!items?.length) return NextResponse.json({ error: "Add what you have to your pantry first", code: "pantry_empty" }, { status: 400 });
+    pantry = pantryRules(items, b.pantry === "only");
+  }
 
   const { data } = await supabase().from("settings").select("data").eq("user_id", uid).maybeSingle();
   const st: Settings = { ...DEFAULT_SETTINGS, ...(data?.data || {}) };
@@ -52,7 +69,7 @@ export async function POST(req: Request) {
     const msg = await anthropic.messages.create({
       model: process.env.ANTHROPIC_MODEL || "claude-sonnet-5-5",
       max_tokens: 8000,
-      messages: [{ role: "user", content: buildPrompt(st, meal, n, hint, avoid, paste) }],
+      messages: [{ role: "user", content: buildPrompt(st, meal, n, hint, avoid, paste, pantry) }],
     });
     const text = msg.content.map((c: any) => (c.type === "text" ? c.text : "")).join("");
     const parsed = parseJson(text);

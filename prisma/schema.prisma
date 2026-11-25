@@ -88,6 +88,16 @@ model IngredientPrice {
   @@map("ingredient_prices")
 }
 
+// What the user has at home, for making meals out of it
+model PantryItem {
+  userId    String   @map("user_id")
+  item      String
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz
+
+  @@id([userId, item])
+  @@map("pantry_items")
+}
+
 // One row per device that turned reminders on
 model PushSubscription {
   endpoint  String   @id

@@ -494,6 +494,23 @@ main.pop{animation:pop-back .36s var(--ease)}
   .setsec>summary h3{font-size:17px;font-weight:600}
   .form .help{font-size:12px}
 }
+.pantryadd{display:flex;gap:8px}
+.pantryadd input{flex:1;min-width:0}
+.chips{list-style:none;margin:12px 0 4px;padding:0;display:flex;flex-wrap:wrap;gap:6px}
+.chips li{display:flex;align-items:center;background:var(--green-soft);border-radius:999px;padding-left:12px;font-size:14px;overflow-wrap:anywhere}
+.chips button{display:grid;place-items:center;flex:none;width:32px;height:32px;border:none;background:none;border-radius:50%;color:var(--muted);cursor:pointer}
+.chips button svg{width:14px;height:14px}
+.pantryonly{justify-content:space-between;margin:8px 0}
+.aiadd summary .muted{white-space:nowrap;font-weight:400;font-size:13px;margin-left:4px}
+.ideas{margin-top:16px;outline:none}
+.idea{padding:14px 0;border-top:1px solid var(--line)}
+.idea h3{margin:0}
+.ideauses{margin:2px 0 6px;font-size:14px;color:var(--muted)}
+.ideauses span{font-weight:600;color:var(--ink)}
+.ideauses .allin{color:var(--green)}
+.idea details summary{display:list-item;font-size:14px}
+.idea details[open]{margin-bottom:12px}
+.idea .row{margin-top:8px}
 @keyframes tabpop{0%{transform:scale(.82)}60%{transform:scale(1.08)}100%{transform:scale(1)}}
 
 @media(prefers-reduced-motion:reduce){

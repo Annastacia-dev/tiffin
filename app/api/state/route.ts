@@ -1,9 +1,10 @@
 import { NextResponse } from "next/server";
 import { currentUser } from "@/lib/auth";
-import { photosConfigured } from "@/lib/unsplash";
+import { getPantry } from "@/lib/pantry";
 import { pushConfigured } from "@/lib/push";
 import { supabase } from "@/lib/supabase";
 import { DEFAULT_SETTINGS, rowToRecipe } from "@/lib/types";
+import { photosConfigured } from "@/lib/unsplash";
 
 export const dynamic = "force-dynamic";
 
@@ -14,13 +15,14 @@ export async function GET() {
   const uid = user.id;
   const sb = supabase();
 
-  const [recipes, slots, settings, checks, account, prices] = await Promise.all([
+  const [recipes, slots, settings, checks, account, prices, pantry] = await Promise.all([
     sb.from("recipes").select("*").eq("user_id", uid),
     sb.from("plan_slots").select("date, meal, recipe_id").eq("user_id", uid),
     sb.from("settings").select("data").eq("user_id", uid).maybeSingle(),
     sb.from("shopping_checks").select("key").eq("user_id", uid),
     sb.from("users").select("password_hash").eq("id", uid).maybeSingle(),
     sb.from("ingredient_prices").select("item, unit, currency, price").eq("user_id", uid),
+    getPantry(uid).catch((e) => (console.error(e), null)),
   ]);
   const err = recipes.error || slots.error || settings.error || checks.error || account.error || prices.error;
   if (err) return NextResponse.json({ error: err.message }, { status: 500 });
@@ -36,6 +38,7 @@ export async function GET() {
     settings: merged,
     prices: Object.fromEntries((prices.data || []).filter((p) => p.currency === merged.currency).map((p) => [p.item + "|" + p.unit, p.price])),
     checks: Object.fromEntries((checks.data || []).map((c) => [c.key, true])),
+    pantry,
     push: { publicKey: pushConfigured() ? process.env.VAPID_PUBLIC_KEY : null },
     photos: photosConfigured(),
     profile: { name: user.name, email: user.email, hasPassword: !!account.data?.password_hash },
