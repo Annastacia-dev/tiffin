@@ -1,6 +1,5 @@
 import { NextResponse } from "next/server";
-import Anthropic from "@anthropic-ai/sdk";
-import { parseJson } from "@/lib/ai";
+import { askJson } from "@/lib/ai";
 import { requireUser } from "@/lib/auth";
 import { getPantry } from "@/lib/pantry";
 import { supabase } from "@/lib/supabase";
@@ -17,7 +16,7 @@ ${only
 Leave out anything on the list that isn't food. Whenever you use something on the list, write its "item" exactly as it is written there, and put any detail in "note". Write the others as "salt", "black pepper", "cooking oil" and "water".`;
 }
 
-function buildPrompt(st: Settings, meal: string, n: number, hint: string, avoid: string[], paste: boolean, pantry = "") {
+function buildPrompt(st: Settings, meal: string, n: number, hint: string, avoid: string[], paste: boolean, pantry = "", idea = "") {
   const portions = meal === "Lunch" || meal === "Dinner"
     ? `${st.lunchPortions} portions (one for ${meal.toLowerCase()}, the rest for ${meal === "Lunch" ? "dinner" : "lunch"} or the next day)`
     : "1 portion";
@@ -25,7 +24,7 @@ function buildPrompt(st: Settings, meal: string, n: number, hint: string, avoid:
   return `You are a meal-planning assistant. ${paste
     ? "Turn the user's description or pasted recipe below into ONE structured recipe; if it is a full recipe, stay faithful to it."
     : `Create ${n} distinct ${meal} recipe${n > 1 ? "s" : ""}.`}
-${pantry}
+${pantry}${idea ? `Make this dish: ${idea}. Use that as the title.` : ""}
 Meal type: ${meal}. Portions: ${portions}.
 Person: ${st.notes}
 Diet and goals: ${st.diet}
@@ -37,12 +36,12 @@ ${calorieLimit ? `Calorie limit: they eat at most ${st.maxCalories} kcal a day, 
 ${avoid.length ? `Do not repeat these existing recipes: ${avoid.slice(0, 80).join("; ")}.` : ""}
 ${hint ? `User request: ${hint}` : ""}
 
-Return ONLY JSON in exactly this shape, no prose, no code fences:
+Return ONLY JSON in exactly this shape, on one line without extra spaces, no prose, no code fences:
 {"recipes":[{"title":"","cuisine":"","servings":"e.g. 1 portion or 2–3 portions","ingredients":[{"qty":number or null,"unit":"","item":"","note":"","category":"","group":""}],"steps":[""],"tip":"","calories":number,"prep":[{"task":"","hoursBefore":number}]}]}
-Ingredient rules: "item" is the plain shopping name in lower case (e.g. "chicken thigh", "onion", "brown rice", "maziwa mala"); preparation goes in "note" (e.g. "chopped"). "unit" is one of g, ml, tsp, tbsp, cup, pc, clove, bunch, tin, head, slice, handful, pinch (use metric; "pc" for countable items). "category" is one of: ${CATS.join(", ")} (spices, oils, sauces, salt go in Pantry). "group" is "" or a sub-heading like "Sauce". Steps: 3–8 short, clear sentences; write any amount with digits and a unit (e.g. "2 cups", "200 g", "180°C"). Tip: one short practical tip about prep, packing or storage. "calories" is your estimate for one portion. "prep" lists only steps that must start at least 1 hour before cooking, such as marinating, soaking, overnight oats, setting chia pudding or thawing, or is empty if there are none: "task" is a short instruction (e.g. "Soak the chia seeds") and "hoursBefore" is how long ahead to start, from 1 to 96.`;
+Ingredient rules: "item" is the plain shopping name in lower case (e.g. "chicken thigh", "onion", "brown rice", "maziwa mala"); preparation goes in "note" (e.g. "chopped"). "unit" is one of g, ml, tsp, tbsp, cup, pc, clove, bunch, tin, head, slice, handful, pinch (use metric; "pc" for countable items). "category" is one of: ${CATS.join(", ")} (spices, oils, sauces, salt go in Pantry). "group" is a sub-heading like "Sauce". Leave "note" and "group" out when empty. Steps: 3–8 short, clear sentences; write any amount with digits and a unit (e.g. "2 cups", "200 g", "180°C"). Tip: one short practical tip about prep, packing or storage. "calories" is your estimate for one portion. "prep" lists only steps that must start at least 1 hour before cooking, such as marinating, soaking, overnight oats, setting chia pudding or thawing, or is empty if there are none: "task" is a short instruction (e.g. "Soak the chia seeds") and "hoursBefore" is how long ahead to start, from 1 to 96.`;
 }
 
-/** Body: { meal, n, hint?, avoid?: string[], paste?: boolean, pantry?: "only" | "extras" } -> { recipes: Recipe[] } (not yet saved). */
+/** Body: { meal, n, hint?, avoid?: string[], paste?: boolean, pantry?: "only" | "extras", idea?: string } -> { recipes: Recipe[] } (not yet saved). */
 export async function POST(req: Request) {
   const uid = await requireUser();
   if (uid instanceof NextResponse) return uid;
@@ -54,6 +53,7 @@ export async function POST(req: Request) {
   const hint = String(b.hint || "").slice(0, 4000);
   const avoid = Array.isArray(b.avoid) ? b.avoid.map(String).slice(0, 80) : [];
   const paste = !!b.paste;
+  const idea = String(b.idea || "").slice(0, 160);
   let pantry = "";
   if (b.pantry) {
     const items = await getPantry(uid).catch(() => null);
@@ -65,14 +65,7 @@ export async function POST(req: Request) {
   const st: Settings = { ...DEFAULT_SETTINGS, ...(data?.data || {}) };
 
   try {
-    const anthropic = new Anthropic();
-    const msg = await anthropic.messages.create({
-      model: process.env.ANTHROPIC_MODEL || "claude-sonnet-5-5",
-      max_tokens: 8000,
-      messages: [{ role: "user", content: buildPrompt(st, meal, n, hint, avoid, paste, pantry) }],
-    });
-    const text = msg.content.map((c: any) => (c.type === "text" ? c.text : "")).join("");
-    const parsed = parseJson(text);
+    const parsed = await askJson(buildPrompt(st, meal, n, hint, avoid, paste, pantry, idea), 8000);
     const arr = Array.isArray(parsed?.recipes) ? parsed.recipes : [];
     const recipes = arr.map((x: any) => cleanRecipe({ ...x, id: undefined, source: "ai" }, meal)).filter(Boolean);
     return NextResponse.json({ recipes });

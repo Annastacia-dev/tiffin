@@ -40,6 +40,7 @@ const DEFAULTS={
 const svg=p=>`<svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${p}</svg>`;
 const ICON_MOVE=svg('<path d="M4 12h15"/><path d="M13 6l6 6-6 6"/>');
 const ICON_SWITCH=svg('<path d="M3 8h17"/><path d="M16 4l4 4-4 4"/><path d="M21 16H4"/><path d="M8 12l-4 4 4 4"/>');
+const ICON_SHARE=svg('<path d="M12 15V4"/><path d="M8 7.5L12 3.5l4 4"/><path d="M8 11H6v9h12v-9h-2"/>');
 const ICON_REMOVE=svg('<path d="M4 7h16"/><path d="M9 7V4h6v3"/><path d="M6 7l1 13h10l1-13"/><path d="M10 11v5"/><path d="M14 11v5"/>');
 const ICON_CLOSE=svg('<path d="M6 6l12 12"/><path d="M18 6L6 18"/>');
 const ICON_MORE=svg('<circle cx="5" cy="12" r="1.4" fill="currentColor"/><circle cx="12" cy="12" r="1.4" fill="currentColor"/><circle cx="19" cy="12" r="1.4" fill="currentColor"/>');
@@ -51,10 +52,10 @@ const TABS=[
 ];
 
 /* ---------- state ---------- */
-const S={recipes:{},days:{},settings:null,checks:{},profile:null,pushKey:null,prices:{},photos:false,pantry:null};
+const S={recipes:{},days:{},settings:null,checks:{},profile:null,pushKey:null,prices:{},photos:{},pantry:null};
 let today=new Date(); today.setHours(0,0,0,0);
 const ui={tab:"plan",mode:"week",anchor:mondayOf(today),day:ymd(today),meal:0,shopRange:"week",shopFrom:null,shopTo:null,hideDone:false,recFilter:"All",recSearch:"",openRecipe:null,aiHint:"",delArm:null,
-  loaded:false,loadFailed:false,dirty:false,profileDirty:false,settingsDraft:null,aiOpen:null,newDesc:"",newType:"Lunch",addDate:null,push:"checking",slotMove:null,secOpen:{},slotMoreOpen:false,justChecked:null,pantryOpen:false,pantryText:"",pantryMeal:null,pantryOnly:false,ideas:null};
+  loaded:false,loadFailed:false,dirty:false,profileDirty:false,settingsDraft:null,aiOpen:null,newDesc:"",newType:"Lunch",addDate:null,push:"checking",slotMove:null,secOpen:{},slotMoreOpen:false,justChecked:null,pantryOpen:false,pantryText:"",pantryMeal:null,pantryOnly:false,ideas:null,setSearch:""};
 
 /* ---------- utils ---------- */
 function esc(s){return String(s??"").replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;")}
@@ -191,7 +192,7 @@ async function loadState(){
     if(r.status===401){location.href="/signin";return}
     if(!r.ok)throw new Error("HTTP "+r.status);
     const j=await r.json();
-    S.recipes=j.recipes||{};S.days=j.days||{};S.settings=j.settings||null;S.checks=j.checks||{};S.profile=j.profile||S.profile;S.pushKey=j.push?.publicKey||null;S.prices=j.prices||{};S.photos=!!j.photos;S.pantry=j.pantry||null;
+    S.recipes=j.recipes||{};S.days=j.days||{};S.settings=j.settings||null;S.checks=j.checks||{};S.profile=j.profile||S.profile;S.pushKey=j.push?.publicKey||null;S.prices=j.prices||{};S.photos=j.photos||{};S.pantry=j.pantry||null;
     ui.offline=!!r.headers.get("x-tiffin-offline");
     const first=!ui.loaded;
     ui.loaded=true;ui.loadFailed=false;
@@ -273,7 +274,7 @@ function afterRender(strips){
 function secOpen(k){const v=ui.secOpen[k];return (v===undefined?!matchMedia("(max-width:640px)").matches:v)?"open":""}
 main.addEventListener("toggle",e=>{
   const d=e.target;if(d.tagName!=="DETAILS")return;
-  if(d.dataset.sec)ui.secOpen[d.dataset.sec]=d.open;
+  if(d.dataset.sec&&!ui.setSearch.trim())ui.secOpen[d.dataset.sec]=d.open; // a search opens sections only while it lasts
   if(d.classList.contains("slotmore"))ui.slotMoreOpen=d.open;
   d.classList.toggle("opening",d.open);
 },true);
@@ -306,18 +307,56 @@ function closeSheet(){
   sheet.classList.remove("show");sheetTimer=setTimeout(()=>{sheet.hidden=true;sheet.innerHTML=""},340);
   (sheetReturn&&document.contains(sheetReturn)&&sheetReturn!==document.body?sheetReturn:main.querySelector(".morebtn"))?.focus({preventScroll:true});
 }
-// A sheet of photos to choose from, with a search box because stock photos won't know every dish by name
-let photoSearch=0;
+// A sheet for adding a photo: Unsplash, with a search box because stock photos won't know every dish by name, or an AI image
+let photoSearch=0,photoSource="unsplash";
+const makingPhoto=new Set();
+const canAddPhotos=()=>!!(S.photos.unsplash||S.photos.ai);
 function openPhotos(id){
   const r=S.recipes[id];if(!r)return;
   clearTimeout(sheetTimer);sheetReturn=document.activeElement;
   sheet.innerHTML=`<div class="sheetback" data-close></div><div class="sheetbox photobox" role="dialog" aria-modal="true" aria-label="Choose a photo"><div class="sheetgroup"><div class="sheettitle">Choose a photo</div>
-    <form class="photosearch" data-recipe="${esc(id)}"><input type="search" aria-label="Search for a dish" maxlength="100" value="${esc(r.title)}"><button class="btn" type="submit">Search</button></form>
-    <div class="photoresults" aria-live="polite"></div>
-    <p class="photocredit">Photos provided by <a href="https://unsplash.com/?utm_source=tiffin&amp;utm_medium=referral" target="_blank" rel="noopener noreferrer">Unsplash</a></p></div><button type="button" class="sheetcancel" data-close>Cancel</button></div>`;
+    ${S.photos.unsplash&&S.photos.ai?'<div class="seg phototabs"><button type="button" data-source="unsplash">Unsplash</button><button type="button" data-source="ai">Make with AI</button></div>':""}
+    <div class="photopane" data-recipe="${esc(id)}"></div></div><button type="button" class="sheetcancel" data-close>Cancel</button></div>`;
   sheet.hidden=false;void sheet.offsetWidth;sheet.classList.add("show");
   sheet.querySelector(".sheetcancel").focus({preventScroll:true});
-  findPhotos(r.title);
+  showPhotoSource(photoSource);
+}
+function showPhotoSource(source){
+  const pane=sheet.querySelector(".photopane"),id=pane.dataset.recipe,r=S.recipes[id];if(!r)return;
+  if(!S.photos[source])source=S.photos.ai?"ai":"unsplash";
+  photoSource=source;photoSearch++;
+  sheet.querySelectorAll("[data-source]").forEach(b=>{const on=b.dataset.source===source;b.classList.toggle("on",on);b.setAttribute("aria-pressed",on)});
+  pane.innerHTML=source==="ai"
+    ?`<p class="photonote">OpenAI makes an image from this recipe's title, ingredients and steps. Each one uses a little of your OpenAI credit.</p>
+    <form class="photosearch"><input type="text" aria-label="Anything to show in the image, optional" placeholder="Anything to show? (optional)" maxlength="200" autocomplete="off"><button class="btn" type="submit">Make</button></form>
+    <div class="photostatus" role="status"></div>`
+    :`<form class="photosearch"><input type="search" aria-label="Search for a dish" maxlength="100" value="${esc(r.title)}"><button class="btn" type="submit">Search</button></form>
+    <div class="photoresults" aria-live="polite"></div>
+    <p class="photocredit">Photos provided by <a href="https://unsplash.com/?utm_source=tiffin&amp;utm_medium=referral" target="_blank" rel="noopener noreferrer">Unsplash</a></p>`;
+  if(source==="ai")photoMaking(id);else findPhotos(r.title);
+}
+// Shows whether this recipe's image is being made. The sheet may have been closed or moved on since it started.
+function photoMaking(id,error=""){
+  const pane=sheet.querySelector(".photopane"),box=pane&&pane.querySelector(".photostatus");
+  if(!box||pane.dataset.recipe!==id)return false;
+  const on=makingPhoto.has(id);
+  pane.querySelectorAll("input,.btn").forEach(x=>{x.disabled=on});
+  box.innerHTML=on?'<div class="spinner"></div><p class="muted">Making your image. It can take up to a minute, and you can close this while you wait.</p>':error?`<p class="muted">${esc(error)}</p>`:"";
+  return sheet.classList.contains("show");
+}
+async function makePhoto(id,detail){
+  if(makingPhoto.has(id))return;
+  makingPhoto.add(id);photoMaking(id);pending++;
+  try{
+    const {photo}=await photoApi("/api/photos",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({recipeId:id,detail})});
+    makingPhoto.delete(id);
+    if(S.recipes[id])S.recipes[id].photo=photo;
+    if(photoMaking(id))closeSheet();
+    softRender();toast("Photo added");
+  }catch(e){
+    makingPhoto.delete(id);
+    const msg=photoError(e);if(!photoMaking(id,msg))toast(msg);
+  }finally{pending--}
 }
 async function photoApi(url,opts){
   const r=await fetch(url,opts);
@@ -343,7 +382,7 @@ async function setPhoto(recipeId,photoId){
   render();
 }
 async function choosePhoto(btn){
-  const id=sheet.querySelector(".photosearch").dataset.recipe,grid=btn.closest(".photogrid"),box=sheet.querySelector(".sheetbox");
+  const id=sheet.querySelector(".photopane").dataset.recipe,grid=btn.closest(".photogrid"),box=sheet.querySelector(".sheetbox");
   grid.querySelectorAll("button").forEach(b=>{b.disabled=true});btn.classList.add("saving");
   pending++;
   try{await setPhoto(id,btn.dataset.photo);if(box.isConnected)closeSheet();toast("Photo added")}
@@ -355,13 +394,14 @@ async function removePhoto(id){
   pending++;
   try{
     await setPhoto(id,null);
-    toast("Photo removed",S.photos?()=>setPhoto(id,old.id).catch(e=>toast(photoError(e))):null);
+    toast("Photo removed",old.ai||S.photos.unsplash?()=>setPhoto(id,old.id).catch(e=>toast(photoError(e))):null);
   }catch(e){toast(photoError(e))}finally{pending--}
 }
-sheet.addEventListener("submit",e=>{e.preventDefault();const q=e.target.querySelector("input").value.trim();if(q)findPhotos(q)});
+sheet.addEventListener("submit",e=>{e.preventDefault();const q=e.target.querySelector("input").value.trim();if(photoSource==="ai")makePhoto(e.target.closest(".photopane").dataset.recipe,q);else if(q)findPhotos(q)});
 // A photo that won't load, such as offline, is hidden rather than left as a broken image
 document.addEventListener("error",e=>{const t=e.target;if(t.tagName==="IMG"&&(t.closest(".photo")||t.classList.contains("thumb")))t.hidden=true},true);
 sheet.addEventListener("click",e=>{
+  const src=e.target.closest("[data-source]");if(src){showPhotoSource(src.dataset.source);return}
   const pick=e.target.closest("[data-photo]");if(pick){choosePhoto(pick);return}
   const act=e.target.closest("[data-sheet]")?.dataset.sheet;
   if(act||e.target.closest("[data-close]"))closeSheet();
@@ -370,7 +410,7 @@ sheet.addEventListener("click",e=>{
 sheet.addEventListener("keydown",e=>{
   if(e.key==="Escape"){closeSheet();return}
   if(e.key!=="Tab")return;
-  const all=[...sheet.querySelectorAll("button:not(:disabled),input,a[href]")],i=all.indexOf(document.activeElement);
+  const all=[...sheet.querySelectorAll("button:not(:disabled),input:not(:disabled),a[href]")],i=all.indexOf(document.activeElement);
   e.preventDefault();all[(i+(e.shiftKey?-1:1)+all.length)%all.length].focus();
 });
 
@@ -386,7 +426,7 @@ function render(){
   if(ui.tab==="plan") main.innerHTML=renderPlan();
   else if(ui.tab==="shopping") main.innerHTML=renderShopping();
   else if(ui.tab==="recipes") main.innerHTML=renderRecipes();
-  else main.innerHTML=renderSettings();
+  else{main.innerHTML=renderSettings();filterSettings()}
   if(fk){const el=main.querySelector(fk)||main.querySelector('.mealhead[aria-expanded="true"]');if(el)el.focus({preventScroll:true})}
   afterRender(strips);
 }
@@ -408,14 +448,31 @@ function prepHTML(r,date,meal){
     return `<li><b>${esc(convertText(s.task))}</b> <span class="muted">${hoursLabel(s.hoursBefore)} before cooking${date?(passed?" · start time has passed":" · start by "+fmtWall(s.wall)):""}</span></li>`}).join("")}</ul></div>`;
 }
 const ICON_PHOTO=svg('<rect x="3" y="5" width="18" height="14" rx="2.5"/><circle cx="8.5" cy="10" r="1.6"/><path d="M4 17l5-4.5 3.5 3 3-2.5 4.5 4"/>');
+function recipeText(r){
+  const ing=[];let grp="";
+  (r.ingredients||[]).forEach(i=>{const g=i.group||"";if(g!==grp){grp=g;if(g)ing.push("",g)}ing.push("• "+fmtIng(i))});
+  const meta=[r.mealType,r.cuisine,r.servings,settings().showCalories&&r.calories?kcal(r.calories)+" per portion":""].filter(Boolean).join(" · ");
+  const prep=(r.prep||[]).map(s=>`• ${convertText(s.task)} (${hoursLabel(s.hoursBefore)} before)`);
+  return [r.title,meta,...(prep.length?["","PREP AHEAD",...prep]:[]),"","INGREDIENTS",...ing,"","RECIPE",...(r.steps||[]).map((s,n)=>`${n+1}. ${convertText(s)}`),...(r.tip?["","Tip: "+convertText(r.tip)]:[])].join("\n");
+}
+async function shareRecipe(id){
+  const r=S.recipes[id];if(!r)return;
+  const text=recipeText(r);
+  if(navigator.share){
+    try{await navigator.share({title:r.title,text});return}
+    catch(e){if(e.name==="AbortError")return} // closed without sharing; anything else falls back to copying
+  }
+  try{await navigator.clipboard.writeText(text);toast("Recipe copied. Paste it anywhere to share it")}
+  catch{toast("Sharing isn't allowed here")}
+}
 function thumbHTML(r){return r&&r.photo&&settings().showPhotos?`<img class="thumb" src="${esc(r.photo.thumb)}" alt="" width="48" height="48" loading="lazy" decoding="async">`:""}
 function photoHTML(r){
   if(!settings().showPhotos)return"";
   const p=r.photo,id=esc(r.id);
-  if(!p)return S.photos?`<button type="button" class="tool addphoto" data-act="photo-pick" data-id="${id}">${ICON_PHOTO}<span>Add a photo</span></button>`:"";
-  return `<figure class="photo"><img src="${esc(p.src)}" alt="${esc(p.alt||"A dish similar to "+r.title)}" width="1200" height="627" decoding="async">
-    <figcaption><span>A similar dish. Photo by <a href="${esc(p.byUrl||p.url)}" target="_blank" rel="noopener noreferrer">${esc(p.by)}</a> on <a href="${esc(p.url)}" target="_blank" rel="noopener noreferrer">Unsplash</a></span>
-    <span class="photoacts">${S.photos?`<button type="button" class="link" data-act="photo-pick" data-id="${id}">Change</button>`:""}<button type="button" class="link" data-act="photo-remove" data-id="${id}">Remove</button></span></figcaption></figure>`;
+  if(!p)return canAddPhotos()?`<button type="button" class="tool addphoto" data-act="photo-pick" data-id="${id}">${ICON_PHOTO}<span>Add a photo</span></button>`:"";
+  return `<figure class="photo"><img src="${esc(p.src)}" alt="${esc(p.ai?"AI image of "+r.title:p.alt||"A dish similar to "+r.title)}" width="1200" height="627" decoding="async">
+    <figcaption><span>${p.ai?"Image made with AI":`A similar dish. Photo by <a href="${esc(p.byUrl||p.url)}" target="_blank" rel="noopener noreferrer">${esc(p.by)}</a> on <a href="${esc(p.url)}" target="_blank" rel="noopener noreferrer">Unsplash</a>`}</span>
+    <span class="photoacts">${canAddPhotos()?`<button type="button" class="link" data-act="photo-pick" data-id="${id}">Change</button>`:""}<button type="button" class="link" data-act="photo-remove" data-id="${id}">Remove</button></span></figcaption></figure>`;
 }
 function recipeHTML(r,{showType=true,showTitle=true,showPhoto=true,date=null,meal=null}={}){
   const v=violates(r);
@@ -490,7 +547,7 @@ function slotTools(date,meal,r){
   if(!r)return "";
   const m=ui.slotMove&&ui.slotMove.date===date&&ui.slotMove.meal===meal?ui.slotMove:null;
   const tool=(act,icon,label,kind)=>`<button type="button" class="tool ${kind&&m&&m.kind===kind?"on":""} ${act==="rm-slot"?"danger":""}" data-act="${act}" data-date="${date}" data-meal="${esc(meal)}" ${kind?`aria-expanded="${!!m&&m.kind===kind}"`:""}>${icon}<span>${label}</span></button>`;
-  return `<div class="slottools" role="group" aria-label="Change this ${esc(meal.toLowerCase())}">${tool("slot-move",ICON_MOVE,"Move","move")}${tool("slot-switch",ICON_SWITCH,"Switch","switch")}${tool("rm-slot",ICON_REMOVE,"Remove")}</div>${m?movePanel(m,r):""}`;
+  return `<div class="slottools" role="group" aria-label="Change this ${esc(meal.toLowerCase())}">${tool("slot-move",ICON_MOVE,"Move","move")}${tool("slot-switch",ICON_SWITCH,"Switch","switch")}<button type="button" class="tool" data-act="share-recipe" data-id="${esc(r.id)}">${ICON_SHARE}<span>Share</span></button>${tool("rm-slot",ICON_REMOVE,"Remove")}</div>${m?movePanel(m,r):""}`;
 }
 // Moving replaces whatever the other day has for this meal. Switching needs something to swap with.
 function movePanel(m,r){
@@ -703,6 +760,7 @@ function renderRecipes(){
       <div class="slotact">
         ${planned?`<form class="aiform"><label class="field"><span>Add to my plan as ${esc(r.mealType.toLowerCase())}</span><input type="date" id="adddate" value="${esc(ui.addDate||ui.day||ymd(today))}"></label><button class="btn" data-act="add-to-plan" data-id="${esc(r.id)}">Add to plan</button></form>`
         :`<p class="muted">Turn on ${esc(r.mealType)} in Settings to add this to your plan.</p>`}
+        <button type="button" class="btn ghost" data-act="share-recipe" data-id="${esc(r.id)}">Share recipe</button>
         <button class="btn quiet danger" data-act="del-recipe" data-id="${esc(r.id)}">${ui.delArm===r.id?"Tap again to delete":"Delete recipe"}</button>
       </div></section>`;
   }
@@ -733,29 +791,32 @@ function renderRecipes(){
 function renderSettings(){
   const st=ui.settingsDraft||settings();
   return `<h2>Settings</h2><p class="muted">These guide AI recipe ideas and which days and meals you plan.</p>
+  <input type="search" id="setsearch" class="setsearch" aria-label="Search settings" placeholder="Search settings" maxlength="60" autocomplete="off" enterkeyhint="search" value="${esc(ui.setSearch)}">
+  <p class="visually-hidden" id="setcount" role="status"></p>
+  <div class="card empty" id="setnone" hidden><b>No settings match</b>Try another word, like "calories" or "reminders".<div class="emptyact"><button type="button" class="btn ghost" data-act="set-clear">Clear search</button></div></div>
   <form id="settingsform" novalidate>
   <details class="card form setsec" data-sec="plan" ${secOpen("plan")}><summary><h3>What to plan</h3></summary>
     <label>Meals to plan</label><div class="help">Switched-off meals leave your plan and shopping list. Their recipes and planned days are kept, so switching one back on restores them.</div><div class="checks">${MEAL_TYPES.map(m=>`<label><input type="checkbox" name="s-meal" value="${m}" ${st.meals.includes(m)?"checked":""}>${m}</label>`).join("")}</div>
     <label>Days to plan</label><div class="checks">${WD.map((w,i)=>`<label><input type="checkbox" name="s-day" value="${i}" ${st.days.includes(i)?"checked":""}>${w}</label>`).join("")}</div>
     <label for="s-lp">Portions per lunch or dinner recipe</label><input type="number" id="s-lp" min="1" max="8" value="${esc(st.lunchPortions)}" style="width:100px">
-    <label>Calories</label><div class="help">AI estimates per portion. They're a guide, not a measurement.</div>
+    <label data-find="kcal energy">Calories</label><div class="help">AI estimates per portion. They're a guide, not a measurement.</div>
     <div class="switches"><label><input type="checkbox" id="s-cal" ${st.showCalories?"checked":""}>Show calories for each meal</label></div>
-    <label>Photos</label><div class="help">Adds a button to each recipe that finds free photos of a similar dish on Unsplash. Nothing is added until you pick one.${S.photos?"":" To find photos, add UNSPLASH_ACCESS_KEY to the server settings first."}</div>
+    <label data-find="picture image unsplash openai ai">Photos</label><div class="help">Adds a button to each recipe for a photo. Choose a free one of a similar dish from Unsplash, or have OpenAI make one of your recipe, which uses your OpenAI credit. Nothing is added until you choose.${S.photos.unsplash?"":" For Unsplash, add UNSPLASH_ACCESS_KEY to the server settings first."}${S.photos.ai?"":" For AI images, add OPENAI_API_KEY to the server settings first."}</div>
     <div class="switches"><label><input type="checkbox" id="s-photos" ${st.showPhotos?"checked":""}>Show recipe photos</label></div>
-    <label for="s-maxcal">Most calories per day</label><div class="help">AI splits this across the meals you plan and keeps each new recipe within its share, leaving room for a leftover portion when only one of lunch or dinner is planned. Your plan warns you when a day goes over. Leave blank for no limit.</div>
+    <label data-find="kcal limit maximum daily" for="s-maxcal">Most calories per day</label><div class="help">AI splits this across the meals you plan and keeps each new recipe within its share, leaving room for a leftover portion when only one of lunch or dinner is planned. Your plan warns you when a day goes over. Leave blank for no limit.</div>
     <input type="number" id="s-maxcal" min="500" max="10000" step="50" inputmode="numeric" value="${esc(st.maxCalories??"")}" style="width:120px">
   </details>
   <details class="card form setsec" data-sec="units" ${secOpen("units")}><summary><h3>Measurements</h3></summary>
     <div class="help">Recipes and your shopping list show amounts this way. Your saved recipes aren't changed, so you can switch back at any time.</div>
-    <label>Instead of cups, use</label><div class="help">1 cup is 16 tablespoons or 240 ml. With tablespoons, anything over a cup shows in ml.</div>
+    <label data-find="volume units metric imperial">Instead of cups, use</label><div class="help">1 cup is 16 tablespoons or 240 ml. With tablespoons, anything over a cup shows in ml.</div>
     <div class="checks segpick">${[["cup","Cups"],["tbsp","Tablespoons"],["ml","Millilitres"]].map(([v,l])=>`<label><input type="radio" name="s-volume" value="${v}" ${st.units.volume===v?"checked":""}>${l}</label>`).join("")}</div>
-    <label>Weight</label>
+    <label data-find="units metric imperial kg pounds">Weight</label>
     <div class="checks segpick">${[["g","Grams"],["oz","Ounces"]].map(([v,l])=>`<label><input type="radio" name="s-weight" value="${v}" ${st.units.weight===v?"checked":""}>${l}</label>`).join("")}</div>
-    <label>Oven temperature</label>
+    <label data-find="units celsius fahrenheit">Oven temperature</label>
     <div class="checks segpick">${[["C","°C"],["F","°F"]].map(([v,l])=>`<label><input type="radio" name="s-temp" value="${v}" ${st.units.temp===v?"checked":""}>${l}</label>`).join("")}</div>
   </details>
   <details class="card form setsec" data-sec="shop" ${secOpen("shop")}><summary><h3>Shopping list</h3></summary>
-    <label>Prices</label><div class="help">AI estimates each item for where you shop, using a little of your API credit the first time an item appears. They're a guide, and the list shows a total.</div>
+    <label data-find="cost money budget">Prices</label><div class="help">AI estimates each item for where you shop, using a little of your API credit the first time an item appears. They're a guide, and the list shows a total.</div>
     <div class="switches"><label><input type="checkbox" id="s-prices" ${st.showPrices?"checked":""}>Show estimated prices</label></div>
     <label for="s-cur">Currency</label><div class="help">A 3-letter code, like KES or USD.</div><input type="text" id="s-cur" maxlength="3" autocapitalize="characters" value="${esc(st.currency)}" style="width:100px;text-transform:uppercase">
     ${Object.keys(S.prices).length?'<label>Saved estimates</label><div class="help">Prices are estimated once per item. Start over if they look out of date, or you shop somewhere new.</div><button type="button" class="btn ghost" data-act="reprice">Estimate again</button>':""}
@@ -763,35 +824,65 @@ function renderSettings(){
   <details class="card form setsec" data-sec="cook" ${secOpen("cook")}><summary><h3>Cook times &amp; reminders</h3></summary>
     <label>When do you cook each meal?</label><div class="help">Prep reminders count back from these times.</div>
     <div class="timegrid">${MEAL_TYPES.map(m=>`<label class="field"><span>${m}</span><input type="time" id="s-time-${m}" value="${esc(st.mealTimes[m]||DEFAULTS.mealTimes[m])}"></label>`).join("")}</div>
-    <label>What to remind me about</label>
+    <label data-find="notifications alerts">What to remind me about</label>
     <div class="switches"><label><input type="checkbox" id="s-rem-prep" ${st.reminders.prep?"checked":""}>Prep ahead, like marinating or soaking</label><label><input type="checkbox" id="s-rem-cook" ${st.reminders.cook?"checked":""}>Time to cook</label></div>
     <label>Quiet hours</label><div class="help">A prep reminder that lands in these hours comes 30 minutes before they start. So an overnight chia soak reminds you the evening before.</div>
     <div class="timegrid"><label class="field"><span>From</span><input type="time" id="s-quiet-start" value="${esc(st.quietStart)}"></label><label class="field"><span>To</span><input type="time" id="s-quiet-end" value="${esc(st.quietEnd)}"></label></div>
     ${enrichHTML()}
-    <label>Notifications on this device</label>${pushHTML()}
+    <label data-find="push alerts reminders">Notifications on this device</label>${pushHTML()}
   </details>
   <details class="card form setsec" data-sec="food" ${secOpen("food")}><summary><h3>Food preferences</h3></summary>
-    <label for="s-excl">Never include</label><div class="help">Comma-separated. Recipes containing these are flagged ⚠ and AI avoids them.</div>
+    <label data-find="allergy allergies avoid exclude exclusions" for="s-excl">Never include</label><div class="help">Comma-separated. Recipes containing these are flagged ⚠ and AI avoids them.</div>
     <input type="text" id="s-excl" value="${esc(st.exclusions.join(", "))}">
     <label for="s-diet">Diet &amp; goals</label><textarea id="s-diet">${esc(st.diet)}</textarea>
     <label for="s-notes">Lifestyle notes</label><textarea id="s-notes">${esc(st.notes)}</textarea>
     <label for="s-cuis">Cuisines to mix</label><div class="help">Comma-separated.</div>
     <input type="text" id="s-cuis" value="${esc(st.cuisines.join(", "))}">
-    <label for="s-loc">Where you shop</label><input type="text" id="s-loc" value="${esc(st.location)}">
+    <label data-find="location country city shop supermarket" for="s-loc">Where you shop</label><input type="text" id="s-loc" value="${esc(st.location)}">
   </details>
   <div class="savebar ${ui.dirty?"dirty":""}" id="savebar"><span class="muted" id="dirtynote" role="status">${ui.dirty?"Unsaved changes":""}</span><button class="btn" data-act="save-settings">Save settings</button></div>
   </form>
-  ${installStatus()?`<section class="card form"><h3>Install Tiffin</h3>${installStatus()==="ios"?'<p class="muted">Tap Share in Safari, then Add to Home Screen.</p>':'<p class="muted">Open it from your home screen, like any other app.</p><button type="button" class="btn ghost" data-act="install">Install app</button>'}</section>`:""}
+  ${installStatus()?`<section class="card form setinstall"><h3>Install Tiffin</h3>${installStatus()==="ios"?'<p class="muted">Tap Share in Safari, then Add to Home Screen.</p>':'<p class="muted">Open it from your home screen, like any other app.</p><button type="button" class="btn ghost" data-act="install">Install app</button>'}</section>`:""}
   <h2 id="profile" style="margin-top:28px">Profile</h2>
   <form class="card form" id="profileform" novalidate>
     <label for="p-name">Name</label><input type="text" id="p-name" autocomplete="name" value="${esc(S.profile?.name||"")}">
-    <label for="p-email">Email</label><div class="help">This is what you sign in with. Google sign-in only works while this matches your Google email.</div><input type="email" id="p-email" autocomplete="email" value="${esc(S.profile?.email||"")}">
+    <label data-find="account sign in login" for="p-email">Email</label><div class="help">This is what you sign in with. Google sign-in only works while this matches your Google email.</div><input type="email" id="p-email" autocomplete="email" value="${esc(S.profile?.email||"")}">
     <label for="p-new">${S.profile?.hasPassword===false?"Add a password":"New password"}</label><div class="help">${S.profile?.hasPassword===false?"Optional. You signed up with Google, and a password lets you sign in with your email too. At least 8 characters.":"Leave blank to keep your current password. At least 8 characters."}</div>
     <input type="password" id="p-new" autocomplete="new-password">
     <label for="p-new2">Confirm password</label><input type="password" id="p-new2" autocomplete="new-password">
     ${S.profile?.hasPassword===false?"":'<label for="p-cur">Current password</label><div class="help">Needed to change your email or password.</div><input type="password" id="p-cur" autocomplete="current-password">'}
-    <div class="row" style="margin-top:18px"><button class="btn" data-act="save-profile">Save profile</button><button type="button" class="link" data-act="signout">Sign out</button></div>
+    <div class="row formacts" style="margin-top:18px"><button class="btn" data-act="save-profile">Save profile</button><button type="button" class="link" data-act="signout">Sign out</button></div>
   </form>`;
+}
+// Hides what doesn't match instead of rendering again, so nothing being typed elsewhere is lost
+function filterSettings(){
+  const box=document.getElementById("setsearch");if(!box)return;
+  const words=ui.setSearch.trim().toLowerCase().split(" ").filter(Boolean);
+  const matches=text=>words.every(w=>text.toLowerCase().includes(w));
+  const textOf=el=>el.tagName==="TEXTAREA"?"":" "+(el.dataset.find||"")+" "+el.textContent;
+  let shown=0;
+  main.querySelectorAll(".setsec,#profileform,.setinstall").forEach(sec=>{
+    const profile=sec.id==="profileform",title=profile?"Profile":sec.querySelector("h3").textContent;
+    // Each setting is a label and everything up to the next one. What comes before the first belongs to them all.
+    const groups=[];let intro="";
+    [...sec.children].forEach(el=>{
+      if(el.tagName==="SUMMARY"||el.tagName==="H3")return;
+      if(el.tagName==="LABEL"||el.classList.contains("formacts"))groups.push([]);
+      if(groups.length)groups[groups.length-1].push(el);else intro+=textOf(el);
+    });
+    const whole=matches(title+intro);let any=whole;
+    groups.forEach(g=>{
+      const on=whole||matches(title+g.map(textOf).join(""));
+      if(on){any=true;if(words.length)shown++}
+      g.forEach(el=>el.classList.toggle("nomatch",!on&&!el.classList.contains("formacts")));
+    });
+    if(whole&&!groups.length)shown++;
+    sec.classList.toggle("nomatch",!any);
+    if(profile)document.getElementById("profile").classList.toggle("nomatch",!any);
+    if(sec.tagName==="DETAILS")sec.open=words.length?any:secOpen(sec.dataset.sec)==="open";
+  });
+  document.getElementById("setnone").hidden=!words.length||shown>0;
+  document.getElementById("setcount").textContent=words.length?(shown?shown+" setting"+(shown===1?"":"s")+" found":"No settings match"):"";
 }
 function enrichHTML(){
   const n=Object.values(S.recipes).filter(r=>r.calories==null||r.prep==null).length;
@@ -839,8 +930,8 @@ function cancelBusy(){if(abortCtl)abortCtl.abort();busy(false)}
 document.getElementById("busycancel").onclick=cancelBusy;
 document.addEventListener("keydown",e=>{if(e.key==="Escape"&&!document.getElementById("busy").hidden)cancelBusy()});
 
-async function aiCall(body,signal){
-  const r=await fetch("/api/ai",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(body),signal});
+async function aiCall(body,signal,url="/api/ai"){
+  const r=await fetch(url,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(body),signal});
   if(r.status===401){location.href="/signin";return {recipes:[]}}
   const j=await r.json().catch(()=>({}));
   if(!r.ok){const e=new Error(j.error||"AI request failed");e.code=j.code||("http_"+r.status);throw e}
@@ -858,12 +949,12 @@ async function genRecipes(meal,n,opts={}){
   const out=[];const avoid=Object.values(S.recipes).map(r=>r.title);
   while(out.length<n){
     const k=Math.min(4,n-out.length);
-    const res=await aiCall({meal,n:k,hint:opts.hint||"",paste:!!opts.paste,pantry:opts.pantry,avoid:[...avoid,...out.map(r=>r.title)]},opts.signal);
+    const res=await aiCall({meal,n:k,hint:opts.hint||"",paste:!!opts.paste,pantry:opts.pantry,idea:opts.idea,avoid:[...avoid,...out.map(r=>r.title)]},opts.signal);
     const arr=(res&&Array.isArray(res.recipes))?res.recipes:Array.isArray(res)?res:[];
     let got=0;
     for(const x of arr){const r=cleanRecipe(x,meal);if(r&&!violates(r).length){r.id=newId();out.push(r);got++}}
     if(!got)break;
-    if(opts.paste||opts.pantry)break;
+    if(opts.paste||opts.pantry||opts.idea)break;
   }
   return out;
 }
@@ -876,29 +967,55 @@ function aiError(e){
 }
 async function saveRecipes(list){for(const r of list)S.recipes[r.id]=r;return api("POST","/api/recipes",{recipes:list})}
 
+// Runs fn over the list a few at a time
+async function pool(list,size,fn){
+  const queue=[...list];
+  await Promise.all([...Array(Math.min(size,queue.length))].map(async()=>{while(queue.length)await fn(queue.shift())}));
+}
 async function fillAI(dates){
-  const st=settings();
-  const todo=[];// {meal, dates[]} per week
-  for(const meal of st.meals){
-    const byWeek={};
-    dates.forEach(d=>{const id=ymd(d);if(!recipeAt(id,meal)){const w=ymd(mondayOf(d));(byWeek[w]=byWeek[w]||[]).push(id)}});
-    for(const [w,ds] of Object.entries(byWeek)) todo.push({meal,week:w,dates:ds});
-  }
-  if(!todo.length){toast("Every planned meal is already filled");return}
-  abortCtl=new AbortController();let made=0;
+  const st=settings(),weeks={};
+  for(const meal of st.meals)dates.forEach(d=>{const id=ymd(d);if(!recipeAt(id,meal)){const w=weeks[ymd(mondayOf(d))]||(weeks[ymd(mondayOf(d))]={});(w[meal]=w[meal]||[]).push(id)}});
+  // One job per recipe. Snacks repeat through the week, so a job can cover several days.
+  const jobs=[],plans=Object.values(weeks).map(meals=>Object.entries(meals).map(([meal,ds])=>{
+    const n=meal==="Snack"?Math.min(3,ds.length):ds.length;
+    const list=[...Array(n)].map((_,k)=>({meal,dates:ds.filter((_,x)=>x%n===k)}));
+    jobs.push(...list);return [meal,list];
+  }));
+  if(!jobs.length){toast("Every planned meal is already filled");return}
+  const ctl=abortCtl=new AbortController(),signal=ctl.signal,hint=ui.aiHint,named=[];
+  let made=0,stop=null;
+  const avoid=()=>[...Object.values(S.recipes).map(r=>r.title),...named];
+  const label=()=>busy(true,`Creating your meals… ${made} of ${jobs.length} ready`);
   try{
-    for(let i=0;i<todo.length;i++){
-      const t=todo[i];
-      busy(true,`Creating ${t.meal.toLowerCase()} ideas for week of ${shortDate(parse(t.week))}… (${i+1}/${todo.length})`);
-      const n=t.meal==="Snack"?Math.min(3,t.dates.length):t.dates.length;
-      const recs=await genRecipes(t.meal,n,{signal:abortCtl.signal,hint:ui.aiHint});
-      if(!recs.length)continue;
-      await saveRecipes(recs);made+=recs.length;
-      const ch={};t.dates.forEach((d,j)=>{ch[d]={[t.meal]:recs[j%recs.length].id}});
-      await applyChanges(ch);
+    for(const plan of plans){
+      if(stop)break;
+      busy(true,plans.length>1?`Choosing dishes… ${made} of ${jobs.length} ready`:"Choosing dishes…");
+      const {ideas={}}=await aiCall({meals:Object.fromEntries(plan.map(([m,l])=>[m,l.length])),hint,avoid:avoid()},signal,"/api/ai/ideas");
+      const todo=plan.flatMap(([m,l])=>l.map((job,k)=>({...job,idea:(ideas[m]||[])[k]})));
+      todo.forEach(t=>{if(t.idea)named.push(t.idea)});
+      label();
+      await pool(todo,5,async t=>{
+        if(stop||signal.aborted)return;
+        try{
+          let [r]=await genRecipes(t.meal,1,{signal,hint,idea:t.idea});
+          if(!r)[r]=await genRecipes(t.meal,1,{signal,hint});
+          if(!r||signal.aborted)return;
+          if(!await saveRecipes([r])){delete S.recipes[r.id];return}
+          await applyChanges(Object.fromEntries(t.dates.map(d=>[d,{[t.meal]:r.id}])));
+          made++;if(!signal.aborted)label();
+        }catch(e){
+          if(e.name==="AbortError"||e.code==="rate_limited")stop=stop||e;
+          else console.error(e); // one recipe that fails doesn't stop the others
+        }
+      });
     }
-    toast(made?`Added ${made} new recipe${made>1?"s":""} to your plan`:"No recipes were created – try again");
-  }catch(e){aiError(e)}finally{busy(false);abortCtl=null;render()}
+  }catch(e){stop=e}
+  finally{if(abortCtl===ctl){busy(false);abortCtl=null}render()}
+  const left=jobs.length-made;
+  if(!left)toast(`Added ${made} new recipe${made>1?"s":""} to your plan`);
+  else if(stop&&stop.name==="AbortError"){if(made)toast(`Stopped. ${made} of ${jobs.length} meals were added`)}
+  else if(!made){if(stop)aiError(stop);else toast("No recipes were created – try again")}
+  else toast(`Added ${made} of ${jobs.length}. Tap Fill with AI again for the rest`);
 }
 async function aiSlot(date,meal){
   abortCtl=new AbortController();busy(true,`Thinking up a new ${meal.toLowerCase()}…`);
@@ -1087,6 +1204,7 @@ main.addEventListener("click",e=>{
       ui.slotMove=null;
       changeWithUndo({[date]:{[meal]:kind==="move"?null:other.id},[to]:{[meal]:r.id}},kind==="switch"?meal+" switched with "+day:meal+" moved to "+day);break}
     case "plan-more": openSheet(ui.mode==="week"?"This week":"This month",[["lib-fill"],["clear",true]]);break;
+    case "share-recipe": shareRecipe(ds.id);break;
     case "photo-pick": openPhotos(ds.id);break;
     case "photo-remove": removePhoto(ds.id);break;
     case "rm-slot": changeWithUndo({[ds.date]:{[ds.meal]:null}},ds.meal+" removed");break;
@@ -1117,6 +1235,7 @@ main.addEventListener("click",e=>{
     case "pantry-cook": suggestMeals();break;
     case "idea-save": saveIdea(ds.id);break;
     case "idea-clear": ui.ideas=null;render();break;
+    case "set-clear":{const s=document.getElementById("setsearch");s.value=ui.setSearch="";filterSettings();s.focus();break}
     case "signout": signOutHere();break;
     case "enrich": enrichRecipes();break;
     case "price-retry": ui.priceError=false;priceTried.clear();render();break;
@@ -1163,6 +1282,7 @@ main.addEventListener("change",e=>{
   if(t.id==="sfrom"||t.id==="sto"){ui.shopFrom=document.getElementById("sfrom").value||ui.shopFrom;ui.shopTo=document.getElementById("sto").value||ui.shopTo;render()}
 });
 main.addEventListener("input",e=>{
+  if(e.target.id==="setsearch"){ui.setSearch=e.target.value;filterSettings()}
   if(e.target.id==="hint")ui.aiHint=e.target.value;
   if(e.target.id==="newdesc")ui.newDesc=e.target.value;
   if(e.target.id==="pantryitem")ui.pantryText=e.target.value;
@@ -1177,7 +1297,7 @@ main.addEventListener("toggle",e=>{
   if(t.dataset.idea){if(t.open)ui.ideaOpen=t.dataset.idea;else if(ui.ideaOpen===t.dataset.idea)ui.ideaOpen=null}
 },true);
 
-function route(){const h=(location.hash||"#plan").slice(1);ui.tab=["plan","shopping","recipes","settings"].includes(h)?h:"plan";render();window.scrollTo(0,0)}
+function route(){const h=(location.hash||"#plan").slice(1);ui.tab=["plan","shopping","recipes","settings"].includes(h)?h:"plan";if(ui.tab!=="settings")ui.setSearch="";render();window.scrollTo(0,0)}
 window.addEventListener("hashchange",route);
 
 /* ---------- boot ---------- */

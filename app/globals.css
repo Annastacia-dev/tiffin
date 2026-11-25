@@ -383,6 +383,11 @@ main.pop{animation:pop-back .36s var(--ease)}
 .photosearch{display:flex;gap:8px;padding:0 14px 12px}
 .photosearch input{flex:1;min-width:0}
 .sheetgroup .photosearch .btn{width:auto;min-height:0;border-top:none;background:var(--green);color:#fff;font-size:14px}
+.sheetgroup .phototabs{margin:0 14px 12px}
+.sheetgroup .phototabs button{flex:1;min-height:36px;border:none;font-size:14px;color:var(--ink)}
+.photonote{margin:0;padding:0 16px 12px;font-size:13px;color:var(--muted)}
+.photostatus:not(:empty){padding:10px 16px 18px;text-align:center}
+.photostatus .muted{margin:0}
 .photoresults{max-height:52vh;min-height:120px;overflow-y:auto;overscroll-behavior:contain;padding:0 14px}
 .photoresults .muted{text-align:center;padding:32px 0;margin:0}
 .photogrid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}
@@ -511,6 +516,13 @@ main.pop{animation:pop-back .36s var(--ease)}
 .idea details summary{display:list-item;font-size:14px}
 .idea details[open]{margin-bottom:12px}
 .idea .row{margin-top:8px}
+.setsearch{width:100%;margin:0 0 12px}
+.nomatch{display:none!important}
+.visually-hidden{position:absolute;width:1px;height:1px;margin:-1px;overflow:hidden;clip-path:inset(50%);white-space:nowrap}
+@media(max-width:640px){
+  .slottools{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:6px}
+  .slottools .tool{flex-direction:column;gap:2px;padding:7px 2px;font-size:12px}
+}
 @keyframes tabpop{0%{transform:scale(.82)}60%{transform:scale(1.08)}100%{transform:scale(1)}}
 
 @media(prefers-reduced-motion:reduce){
