@@ -26,6 +26,7 @@ const DEFAULTS={
   days:[0,1,2,3,4],
   lunchPortions:3,
   showCalories:false,
+  showPhotos:false,
   maxCalories:null,
   showPrices:false,
   currency:"KES",
@@ -50,7 +51,7 @@ const TABS=[
 ];
 
 /* ---------- state ---------- */
-const S={recipes:{},days:{},settings:null,checks:{},profile:null,pushKey:null,prices:{}};
+const S={recipes:{},days:{},settings:null,checks:{},profile:null,pushKey:null,prices:{},photos:false};
 let today=new Date(); today.setHours(0,0,0,0);
 const ui={tab:"plan",mode:"week",anchor:mondayOf(today),day:ymd(today),meal:0,shopRange:"week",shopFrom:null,shopTo:null,hideDone:false,recFilter:"All",recSearch:"",openRecipe:null,aiHint:"",delArm:null,
   loaded:false,loadFailed:false,dirty:false,profileDirty:false,settingsDraft:null,aiOpen:null,newDesc:"",newType:"Lunch",addDate:null,push:"checking",slotMove:null,secOpen:{},slotMoreOpen:false,justChecked:null};
@@ -190,7 +191,7 @@ async function loadState(){
     if(r.status===401){location.href="/signin";return}
     if(!r.ok)throw new Error("HTTP "+r.status);
     const j=await r.json();
-    S.recipes=j.recipes||{};S.days=j.days||{};S.settings=j.settings||null;S.checks=j.checks||{};S.profile=j.profile||S.profile;S.pushKey=j.push?.publicKey||null;S.prices=j.prices||{};
+    S.recipes=j.recipes||{};S.days=j.days||{};S.settings=j.settings||null;S.checks=j.checks||{};S.profile=j.profile||S.profile;S.pushKey=j.push?.publicKey||null;S.prices=j.prices||{};S.photos=!!j.photos;
     ui.offline=!!r.headers.get("x-tiffin-offline");
     const first=!ui.loaded;
     ui.loaded=true;ui.loadFailed=false;
@@ -305,7 +306,63 @@ function closeSheet(){
   sheet.classList.remove("show");sheetTimer=setTimeout(()=>{sheet.hidden=true;sheet.innerHTML=""},340);
   (sheetReturn&&document.contains(sheetReturn)&&sheetReturn!==document.body?sheetReturn:main.querySelector(".morebtn"))?.focus({preventScroll:true});
 }
+// A sheet of photos to choose from, with a search box because stock photos won't know every dish by name
+let photoSearch=0;
+function openPhotos(id){
+  const r=S.recipes[id];if(!r)return;
+  clearTimeout(sheetTimer);sheetReturn=document.activeElement;
+  sheet.innerHTML=`<div class="sheetback" data-close></div><div class="sheetbox photobox" role="dialog" aria-modal="true" aria-label="Choose a photo"><div class="sheetgroup"><div class="sheettitle">Choose a photo</div>
+    <form class="photosearch" data-recipe="${esc(id)}"><input type="search" aria-label="Search for a dish" maxlength="100" value="${esc(r.title)}"><button class="btn" type="submit">Search</button></form>
+    <div class="photoresults" aria-live="polite"></div>
+    <p class="photocredit">Photos provided by <a href="https://unsplash.com/?utm_source=tiffin&amp;utm_medium=referral" target="_blank" rel="noopener noreferrer">Unsplash</a></p></div><button type="button" class="sheetcancel" data-close>Cancel</button></div>`;
+  sheet.hidden=false;void sheet.offsetWidth;sheet.classList.add("show");
+  sheet.querySelector(".sheetcancel").focus({preventScroll:true});
+  findPhotos(r.title);
+}
+async function photoApi(url,opts){
+  const r=await fetch(url,opts);
+  if(r.status===401){location.href="/signin";throw new Error("Signed out")}
+  const j=await r.json().catch(()=>({}));
+  if(!r.ok)throw new Error(j.error||"Something went wrong. Try again.");
+  return j;
+}
+function photoError(e){return e instanceof TypeError?"You're offline. Reconnect and try again.":e.message}
+async function findPhotos(q){
+  const n=++photoSearch,box=sheet.querySelector(".photoresults");
+  box.innerHTML='<p class="muted">Searching…</p>';
+  let html;
+  try{
+    const {photos}=await photoApi("/api/photos?"+new URLSearchParams({q}));
+    html=photos.length?`<div class="photogrid">${photos.map(p=>`<button type="button" data-photo="${p.id}" aria-label="${esc((p.alt||"Photo")+", by "+p.by)}"><img src="${esc(p.thumb)}" alt="" width="280" height="200"><span>${esc(p.by)}</span></button>`).join("")}</div>`:'<p class="muted">No photos found. Try simpler words, like "chicken curry".</p>';
+  }catch(e){html=`<p class="muted">${esc(photoError(e))}</p>`}
+  if(n===photoSearch&&box.isConnected)box.innerHTML=html;
+}
+async function setPhoto(recipeId,photoId){
+  const {photo}=await photoApi("/api/photos",{method:"PUT",headers:{"Content-Type":"application/json"},body:JSON.stringify({recipeId,photoId})});
+  if(S.recipes[recipeId])S.recipes[recipeId].photo=photo;
+  render();
+}
+async function choosePhoto(btn){
+  const id=sheet.querySelector(".photosearch").dataset.recipe,grid=btn.closest(".photogrid"),box=sheet.querySelector(".sheetbox");
+  grid.querySelectorAll("button").forEach(b=>{b.disabled=true});btn.classList.add("saving");
+  pending++;
+  try{await setPhoto(id,btn.dataset.photo);if(box.isConnected)closeSheet();toast("Photo added")}
+  catch(e){toast(photoError(e));if(grid.isConnected){grid.querySelectorAll("button").forEach(b=>{b.disabled=false});btn.classList.remove("saving")}}
+  finally{pending--}
+}
+async function removePhoto(id){
+  const old=S.recipes[id]?.photo;if(!old)return;
+  pending++;
+  try{
+    await setPhoto(id,null);
+    toast("Photo removed",S.photos?()=>setPhoto(id,old.id).catch(e=>toast(photoError(e))):null);
+  }catch(e){toast(photoError(e))}finally{pending--}
+}
+sheet.addEventListener("submit",e=>{e.preventDefault();const q=e.target.querySelector("input").value.trim();if(q)findPhotos(q)});
+// A photo that won't load, such as offline, is hidden rather than left as a broken image
+document.addEventListener("error",e=>{const t=e.target;if(t.tagName==="IMG"&&(t.closest(".photo")||t.classList.contains("thumb")))t.hidden=true},true);
 sheet.addEventListener("click",e=>{
+  const pick=e.target.closest("[data-photo]");if(pick){choosePhoto(pick);return}
   const act=e.target.closest("[data-sheet]")?.dataset.sheet;
   if(act||e.target.closest("[data-close]"))closeSheet();
   if(act)main.querySelector(`[data-act="${act}"]`)?.click();
@@ -313,7 +370,7 @@ sheet.addEventListener("click",e=>{
 sheet.addEventListener("keydown",e=>{
   if(e.key==="Escape"){closeSheet();return}
   if(e.key!=="Tab")return;
-  const all=[...sheet.querySelectorAll("button:not(:disabled)")],i=all.indexOf(document.activeElement);
+  const all=[...sheet.querySelectorAll("button:not(:disabled),input,a[href]")],i=all.indexOf(document.activeElement);
   e.preventDefault();all[(i+(e.shiftKey?-1:1)+all.length)%all.length].focus();
 });
 
@@ -350,6 +407,16 @@ function prepHTML(r,date,meal){
     const passed=date&&wallToInstant(s.wall,st.timezone).getTime()<Date.now();
     return `<li><b>${esc(convertText(s.task))}</b> <span class="muted">${hoursLabel(s.hoursBefore)} before cooking${date?(passed?" · start time has passed":" · start by "+fmtWall(s.wall)):""}</span></li>`}).join("")}</ul></div>`;
 }
+const ICON_PHOTO=svg('<rect x="3" y="5" width="18" height="14" rx="2.5"/><circle cx="8.5" cy="10" r="1.6"/><path d="M4 17l5-4.5 3.5 3 3-2.5 4.5 4"/>');
+function thumbHTML(r){return r&&r.photo&&settings().showPhotos?`<img class="thumb" src="${esc(r.photo.thumb)}" alt="" width="48" height="48" loading="lazy" decoding="async">`:""}
+function photoHTML(r){
+  if(!settings().showPhotos)return"";
+  const p=r.photo,id=esc(r.id);
+  if(!p)return S.photos?`<button type="button" class="tool addphoto" data-act="photo-pick" data-id="${id}">${ICON_PHOTO}<span>Add a photo</span></button>`:"";
+  return `<figure class="photo"><img src="${esc(p.src)}" alt="${esc(p.alt||"A dish similar to "+r.title)}" width="1200" height="627" decoding="async">
+    <figcaption><span>A similar dish. Photo by <a href="${esc(p.byUrl||p.url)}" target="_blank" rel="noopener noreferrer">${esc(p.by)}</a> on <a href="${esc(p.url)}" target="_blank" rel="noopener noreferrer">Unsplash</a></span>
+    <span class="photoacts">${S.photos?`<button type="button" class="link" data-act="photo-pick" data-id="${id}">Change</button>`:""}<button type="button" class="link" data-act="photo-remove" data-id="${id}">Remove</button></span></figcaption></figure>`;
+}
 function recipeHTML(r,{showType=true,showTitle=true,date=null,meal=null}={}){
   const v=violates(r);
   let ing="",grp="";
@@ -359,6 +426,7 @@ function recipeHTML(r,{showType=true,showTitle=true,date=null,meal=null}={}){
     <div class="meta">${[r.cuisine,r.servings,settings().showCalories&&r.calories?kcal(r.calories)+" per portion":""].filter(Boolean).map(esc).join(" · ")}</div>
     ${v.length?`<div class="warnbox">⚠ Contains something on your exclusion list: ${esc(v.join(", "))}</div>`:""}
     ${prepHTML(r,date,meal)}
+    ${photoHTML(r)}
     <div class="cols"><div><h4>Ingredients</h4><ul class="ing">${ing}</ul></div>
     <div><h4>Recipe</h4><ol class="steps">${(r.steps||[]).map(s=>`<li>${esc(convertText(s))}</li>`).join("")}</ol>
     ${r.tip?`<div class="tip"><b>Tip:</b> ${esc(convertText(r.tip))}</div>`:""}</div></div>`;
@@ -401,7 +469,7 @@ function renderWeek(st){
     const r=recipeAt(date,meal),open=i===ui.meal,bad=r&&violates(r).length;
     return `<section class="mealcard ${open?"open":""}">
       <button class="mealhead" data-meal="${i}" aria-expanded="${open}">
-        <span class="mealname">${esc(meal)}</span>
+        ${thumbHTML(r)}<span class="mealname">${esc(meal)}</span>
         <span class="mealtitle ${r?"":"none"}">${bad?"⚠ ":""}${r?esc(r.title):"Nothing planned"}${r?mealSub(r,date,meal,st):""}</span>
         <span class="chev" aria-hidden="true">›</span>
       </button>
@@ -593,7 +661,7 @@ function renderRecipes(){
   if(!list.length) return h+(all.length
     ?`<div class="card empty"><b>No recipes match</b>Try another search or meal type.<div class="emptyact"><button class="btn ghost" data-act="clear-filters">Clear filters</button></div></div>`
     :`<div class="card empty"><b>No recipes here yet</b>Create one above, or use "Fill with AI" on the Plan tab.</div>`);
-  return h+`<div class="reclist">${list.map(r=>`<button class="recitem" data-open="${esc(r.id)}"><span class="tag">${esc(r.mealType)}</span><span class="t">${violates(r).length?"⚠ ":""}${esc(r.title)}</span><span class="s">${esc([r.cuisine,r.servings,settings().showCalories&&r.calories?kcal(r.calories):""].filter(Boolean).join(" · "))}</span></button>`).join("")}</div>`;
+  return h+`<div class="reclist">${list.map(r=>`<button class="recitem" data-open="${esc(r.id)}">${thumbHTML(r)}<span class="tag">${esc(r.mealType)}</span><span class="t">${violates(r).length?"⚠ ":""}${esc(r.title)}</span><span class="s">${esc([r.cuisine,r.servings,settings().showCalories&&r.calories?kcal(r.calories):""].filter(Boolean).join(" · "))}</span></button>`).join("")}</div>`;
 }
 
 /* ---------- settings ---------- */
@@ -607,6 +675,8 @@ function renderSettings(){
     <label for="s-lp">Portions per lunch or dinner recipe</label><input type="number" id="s-lp" min="1" max="8" value="${esc(st.lunchPortions)}" style="width:100px">
     <label>Calories</label><div class="help">AI estimates per portion. They're a guide, not a measurement.</div>
     <div class="switches"><label><input type="checkbox" id="s-cal" ${st.showCalories?"checked":""}>Show calories for each meal</label></div>
+    <label>Photos</label><div class="help">Adds a button to each recipe that finds free photos of a similar dish on Unsplash. Nothing is added until you pick one.${S.photos?"":" To find photos, add UNSPLASH_ACCESS_KEY to the server settings first."}</div>
+    <div class="switches"><label><input type="checkbox" id="s-photos" ${st.showPhotos?"checked":""}>Show recipe photos</label></div>
     <label for="s-maxcal">Most calories per day</label><div class="help">AI splits this across the meals you plan and keeps each new recipe within its share, leaving room for a leftover portion when only one of lunch or dinner is planned. Your plan warns you when a day goes over. Leave blank for no limit.</div>
     <input type="number" id="s-maxcal" min="500" max="10000" step="50" inputmode="numeric" value="${esc(st.maxCalories??"")}" style="width:120px">
   </details>
@@ -681,6 +751,7 @@ function readSettings(){
     cuisines:split(document.getElementById("s-cuis").value),location:document.getElementById("s-loc").value.trim(),
     meals:MEAL_TYPES.filter(m=>meals.includes(m)),days:days.sort(),lunchPortions:Math.max(1,Math.min(8,+document.getElementById("s-lp").value||3)),
     showCalories:document.getElementById("s-cal").checked,
+    showPhotos:document.getElementById("s-photos").checked,
     maxCalories:document.getElementById("s-maxcal").value===""?null:+document.getElementById("s-maxcal").value,
     showPrices:document.getElementById("s-prices").checked,
     currency:document.getElementById("s-cur").value.trim().toUpperCase(),
@@ -951,6 +1022,8 @@ main.addEventListener("click",e=>{
       ui.slotMove=null;
       changeWithUndo({[date]:{[meal]:kind==="move"?null:other.id},[to]:{[meal]:r.id}},kind==="switch"?meal+" switched with "+day:meal+" moved to "+day);break}
     case "plan-more": openSheet(ui.mode==="week"?"This week":"This month",[["lib-fill"],["clear",true]]);break;
+    case "photo-pick": openPhotos(ds.id);break;
+    case "photo-remove": removePhoto(ds.id);break;
     case "rm-slot": changeWithUndo({[ds.date]:{[ds.meal]:null}},ds.meal+" removed");break;
     case "copy-list":{
       const [from,to]=shopRange();const {items}=buildList(from,to);

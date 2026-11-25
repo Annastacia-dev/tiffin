@@ -42,6 +42,8 @@ model Recipe {
   calories    Int?
   // Steps to start ahead of cooking: [{ task, hoursBefore }]. Null until checked, [] if none.
   prep        Json?    @db.JsonB
+  // Stock photo of a similar dish, picked by the user: see RecipePhoto in lib/types.ts
+  photo       Json?    @db.JsonB
   createdAt   DateTime @default(now()) @map("created_at") @db.Timestamptz
 
   planSlots PlanSlot[]

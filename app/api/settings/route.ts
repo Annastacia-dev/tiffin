@@ -18,6 +18,7 @@ export async function PUT(req: Request) {
     days: Array.isArray(b.days) ? b.days.map(Number).filter((d: number) => d >= 0 && d <= 6) : DEFAULT_SETTINGS.days,
     lunchPortions: Math.max(1, Math.min(8, Number(b.lunchPortions) || 3)),
     showCalories: !!b.showCalories,
+    showPhotos: !!b.showPhotos,
     maxCalories: Number(b.maxCalories) >= 500 && Number(b.maxCalories) <= 10000 ? Math.round(Number(b.maxCalories)) : null,
     showPrices: !!b.showPrices,
     currency: validCurrency(b.currency) ? b.currency : DEFAULT_SETTINGS.currency,
