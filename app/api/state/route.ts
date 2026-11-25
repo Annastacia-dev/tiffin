@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { currentUser } from "@/lib/auth";
+import { photosConfigured } from "@/lib/unsplash";
 import { pushConfigured } from "@/lib/push";
 import { supabase } from "@/lib/supabase";
 import { DEFAULT_SETTINGS, rowToRecipe } from "@/lib/types";
@@ -36,6 +37,7 @@ export async function GET() {
     prices: Object.fromEntries((prices.data || []).filter((p) => p.currency === merged.currency).map((p) => [p.item + "|" + p.unit, p.price])),
     checks: Object.fromEntries((checks.data || []).map((c) => [c.key, true])),
     push: { publicKey: pushConfigured() ? process.env.VAPID_PUBLIC_KEY : null },
+    photos: photosConfigured(),
     profile: { name: user.name, email: user.email, hasPassword: !!account.data?.password_hash },
   });
 }

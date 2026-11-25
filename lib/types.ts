@@ -25,7 +25,12 @@ export type Recipe = {
   calories: number | null;
   /** Steps to start ahead of cooking. Null until checked, empty if none. */
   prep: PrepStep[] | null;
+  /** Stock photo of a similar dish. Only /api/photos writes it, so saving a recipe leaves it alone. */
+  photo?: RecipePhoto | null;
 };
+
+/** An Unsplash photo. Its photographer has to be credited wherever it is shown large. */
+export type RecipePhoto = { id: string; src: string; thumb: string; alt: string; by: string; byUrl: string; url: string };
 
 export type PrepStep = { task: string; hoursBefore: number };
 
@@ -41,6 +46,8 @@ export type Settings = {
   days: number[];
   lunchPortions: number;
   showCalories: boolean;
+  /** Show recipe photos, and the button that adds them */
+  showPhotos: boolean;
   /** Most calories to aim for in a day. Null means no limit. */
   maxCalories: number | null;
   /** Show AI price estimates on the shopping list */
@@ -90,6 +97,7 @@ export const DEFAULT_SETTINGS: Settings = {
   days: [0, 1, 2, 3, 4],
   lunchPortions: 3,
   showCalories: false,
+  showPhotos: false,
   maxCalories: null,
   showPrices: false,
   currency: "KES",
@@ -148,6 +156,7 @@ export function rowToRecipe(r: any): Recipe {
     createdAt: r.created_at ? Date.parse(r.created_at) : undefined,
     calories: r.calories ?? null,
     prep: r.prep ?? null,
+    photo: r.photo ?? null,
   };
 }
 
