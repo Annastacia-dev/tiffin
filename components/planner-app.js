@@ -51,10 +51,10 @@ const TABS=[
 ];
 
 /* ---------- state ---------- */
-const S={recipes:{},days:{},settings:null,checks:{},profile:null,pushKey:null,prices:{},photos:false};
+const S={recipes:{},days:{},settings:null,checks:{},profile:null,pushKey:null,prices:{},photos:false,pantry:null};
 let today=new Date(); today.setHours(0,0,0,0);
 const ui={tab:"plan",mode:"week",anchor:mondayOf(today),day:ymd(today),meal:0,shopRange:"week",shopFrom:null,shopTo:null,hideDone:false,recFilter:"All",recSearch:"",openRecipe:null,aiHint:"",delArm:null,
-  loaded:false,loadFailed:false,dirty:false,profileDirty:false,settingsDraft:null,aiOpen:null,newDesc:"",newType:"Lunch",addDate:null,push:"checking",slotMove:null,secOpen:{},slotMoreOpen:false,justChecked:null};
+  loaded:false,loadFailed:false,dirty:false,profileDirty:false,settingsDraft:null,aiOpen:null,newDesc:"",newType:"Lunch",addDate:null,push:"checking",slotMove:null,secOpen:{},slotMoreOpen:false,justChecked:null,pantryOpen:false,pantryText:"",pantryMeal:null,pantryOnly:false,ideas:null};
 
 /* ---------- utils ---------- */
 function esc(s){return String(s??"").replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;")}
@@ -191,7 +191,7 @@ async function loadState(){
     if(r.status===401){location.href="/signin";return}
     if(!r.ok)throw new Error("HTTP "+r.status);
     const j=await r.json();
-    S.recipes=j.recipes||{};S.days=j.days||{};S.settings=j.settings||null;S.checks=j.checks||{};S.profile=j.profile||S.profile;S.pushKey=j.push?.publicKey||null;S.prices=j.prices||{};S.photos=!!j.photos;
+    S.recipes=j.recipes||{};S.days=j.days||{};S.settings=j.settings||null;S.checks=j.checks||{};S.profile=j.profile||S.profile;S.pushKey=j.push?.publicKey||null;S.prices=j.prices||{};S.photos=!!j.photos;S.pantry=j.pantry||null;
     ui.offline=!!r.headers.get("x-tiffin-offline");
     const first=!ui.loaded;
     ui.loaded=true;ui.loadFailed=false;
@@ -417,7 +417,7 @@ function photoHTML(r){
     <figcaption><span>A similar dish. Photo by <a href="${esc(p.byUrl||p.url)}" target="_blank" rel="noopener noreferrer">${esc(p.by)}</a> on <a href="${esc(p.url)}" target="_blank" rel="noopener noreferrer">Unsplash</a></span>
     <span class="photoacts">${S.photos?`<button type="button" class="link" data-act="photo-pick" data-id="${id}">Change</button>`:""}<button type="button" class="link" data-act="photo-remove" data-id="${id}">Remove</button></span></figcaption></figure>`;
 }
-function recipeHTML(r,{showType=true,showTitle=true,date=null,meal=null}={}){
+function recipeHTML(r,{showType=true,showTitle=true,showPhoto=true,date=null,meal=null}={}){
   const v=violates(r);
   let ing="",grp="";
   (r.ingredients||[]).forEach(i=>{const g=i.group||"";if(g!==grp){grp=g;if(g)ing+=`<li class="subhead">${esc(g)}</li>`}ing+=`<li>${esc(fmtIng(i))}</li>`});
@@ -426,7 +426,7 @@ function recipeHTML(r,{showType=true,showTitle=true,date=null,meal=null}={}){
     <div class="meta">${[r.cuisine,r.servings,settings().showCalories&&r.calories?kcal(r.calories)+" per portion":""].filter(Boolean).map(esc).join(" · ")}</div>
     ${v.length?`<div class="warnbox">⚠ Contains something on your exclusion list: ${esc(v.join(", "))}</div>`:""}
     ${prepHTML(r,date,meal)}
-    ${photoHTML(r)}
+    ${showPhoto?photoHTML(r):""}
     <div class="cols"><div><h4>Ingredients</h4><ul class="ing">${ing}</ul></div>
     <div><h4>Recipe</h4><ol class="steps">${(r.steps||[]).map(s=>`<li>${esc(convertText(s))}</li>`).join("")}</ol>
     ${r.tip?`<div class="tip"><b>Tip:</b> ${esc(convertText(r.tip))}</div>`:""}</div></div>`;
@@ -629,6 +629,70 @@ function renderShopping(){
   return h+`</div>`;
 }
 
+/* ---------- pantry ---------- */
+// Taken as being in any kitchen: keep in step with pantryRules in app/api/ai/route.ts
+const BASICS=["salt","pepper","black pepper","oil","cooking oil","water"];
+function singular(s){return String(s||"").trim().toLowerCase().replace(/ies$/,"y").replace(/(o|ch|sh|x)es$/,"$1").replace(/([^s])s$/,"$1")}
+// Names have to match, so "chicken" in the pantry doesn't count as having chicken stock
+function pantryCheck(r){
+  const basics=new Set(BASICS.map(singular)),have=new Set((S.pantry||[]).map(singular)),need=new Map();
+  (r.ingredients||[]).forEach(i=>{const k=singular(i.item);if(k&&!basics.has(k))need.set(k,i.item)});
+  return {total:need.size,buy:[...need].filter(([k])=>!have.has(k)).map(([,name])=>name)};
+}
+function pantryHTML(){
+  if(!S.pantry)return"";
+  const on=settings().meals,p=[...S.pantry].sort((a,b)=>a.localeCompare(b));
+  if(!on.includes(ui.pantryMeal))ui.pantryMeal=on.includes("Lunch")?"Lunch":on[0];
+  return `<details class="card aiadd" id="pantry" ${ui.pantryOpen?"open":""}><summary><span>🥕 Make a meal from my pantry${p.length?` <span class="muted">${p.length} item${p.length===1?"":"s"}</span>`:""}</span></summary>
+    <p class="muted">Add what you have at home and AI will suggest meals that use it. Salt, pepper, oil and water are assumed.</p>
+    <form class="pantryadd"><input type="text" id="pantryitem" aria-label="What do you have?" placeholder="e.g. eggs, spinach, rice" maxlength="1000" autocomplete="off" enterkeyhint="done" value="${esc(ui.pantryText)}"><button class="btn ghost" data-act="pantry-add">Add</button></form>
+    ${p.length?`<ul class="chips" aria-label="In my pantry">${p.map(i=>`<li>${esc(cap(i))}<button type="button" data-act="pantry-rm" data-item="${esc(i)}" aria-label="Remove ${esc(i)}">${ICON_CLOSE}</button></li>`).join("")}</ul>
+    <label class="toggle pantryonly"><input type="checkbox" id="pantryonly" ${ui.pantryOnly?"checked":""}><span>Use only what I have</span></label>
+    <div class="row"><select id="pantrymeal" aria-label="Meal type" style="width:auto">${on.map(m=>`<option ${m===ui.pantryMeal?"selected":""}>${m}</option>`).join("")}</select>
+    <button class="btn" data-act="pantry-cook">Suggest meals</button></div>`:""}
+    ${ui.ideas?ideasHTML():""}
+  </details>`;
+}
+function ideasHTML(){
+  return `<div class="ideas" id="ideas" tabindex="-1" aria-label="Suggested meals">${ui.ideas.map(r=>{
+    const {total,buy}=pantryCheck(r);
+    return `<article class="idea"><h3>${esc(r.title)}</h3><p class="ideauses"><span class="${buy.length?"":"allin"}">${buy.length?`You have ${total-buy.length} of ${total}`:"You have everything"}</span>${buy.length?` · To buy: ${esc(buy.join(", "))}`:""}</p>
+      <details data-idea="${esc(r.id)}" ${ui.ideaOpen===r.id?"open":""}><summary>See the recipe</summary>${recipeHTML(r,{showType:false,showTitle:false,showPhoto:false})}</details>
+      <div class="row"><button class="btn" data-act="idea-save" data-id="${esc(r.id)}">Save recipe</button></div></article>`}).join("")}
+    <button type="button" class="link" data-act="idea-clear">Clear suggestions</button></div>`;
+}
+async function savePantry(items,on){
+  const set=new Set(S.pantry);items.forEach(i=>on?set.add(i):set.delete(i));
+  if(on&&set.size>100){toast("Your pantry can hold 100 items");return false}
+  S.pantry=[...set];render();
+  // In order, so a quick Undo can't be overtaken by the change it undoes
+  planSaves=planSaves.then(()=>api("PUT","/api/pantry",{items,on})).then(j=>{if(!j)loadState()});
+  return true;
+}
+function addToPantry(){
+  const items=[...new Set(ui.pantryText.split(/[,;\n]/).map(x=>x.trim().toLowerCase().replace(/\s+/g," ").slice(0,60)).filter(Boolean))];
+  if(items.length){const text=ui.pantryText;ui.pantryText="";savePantry(items,true).then(ok=>{if(!ok){ui.pantryText=text;render()}})}
+  document.getElementById("pantryitem")?.focus({preventScroll:true});
+}
+async function suggestMeals(){
+  abortCtl=new AbortController();busy(true,"Looking through your pantry…");
+  try{
+    await planSaves; // the server reads the saved pantry
+    const only=ui.pantryOnly,recs=await genRecipes(ui.pantryMeal,2,{signal:abortCtl.signal,pantry:only?"only":"extras"});
+    if(!recs.length){toast("Couldn't make a meal from that – try adding a few more items");return}
+    ui.ideas=recs.sort((a,b)=>pantryCheck(a).buy.length-pantryCheck(b).buy.length);ui.ideaOpen=null;
+  }catch(e){if(e&&e.code==="pantry_empty")toast(e.message);else aiError(e)}
+  finally{busy(false);abortCtl=null;render()}
+  document.getElementById("ideas")?.focus();
+}
+async function saveIdea(id){
+  const r=(ui.ideas||[]).find(x=>x.id===id);if(!r)return;
+  const ok=await saveRecipes([r]);
+  if(!ok){delete S.recipes[id];return}
+  ui.ideas=ui.ideas.filter(x=>x.id!==id);if(!ui.ideas.length)ui.ideas=null;
+  ui.openRecipe=id;ui.addDate=null;render();window.scrollTo(0,0);toast("Recipe saved");
+}
+
 /* ---------- recipes ---------- */
 function renderRecipes(){
   const all=Object.values(S.recipes);
@@ -656,6 +720,7 @@ function renderRecipes(){
     <div class="row" style="margin-top:8px"><select id="newtype" aria-label="Meal type" style="width:auto">${on.map(m=>`<option ${m===ui.newType?"selected":""}>${m}</option>`).join("")}</select>
     <button class="btn" data-act="ai-create">Create recipe</button></div>
   </details>
+  ${pantryHTML()}
   <div class="row recfilters"><input type="search" id="recsearch" aria-label="Search recipes" placeholder="Search recipes" value="${esc(ui.recSearch)}">
     <div class="seg" data-slide="recf">${["All",...on].map(m=>`<button data-recf="${m}" class="${ui.recFilter===m?"on":""}" aria-pressed="${ui.recFilter===m}">${m}</button>`).join("")}</div></div>`;
   if(!list.length) return h+(all.length
@@ -793,12 +858,12 @@ async function genRecipes(meal,n,opts={}){
   const out=[];const avoid=Object.values(S.recipes).map(r=>r.title);
   while(out.length<n){
     const k=Math.min(4,n-out.length);
-    const res=await aiCall({meal,n:k,hint:opts.hint||"",paste:!!opts.paste,avoid:[...avoid,...out.map(r=>r.title)]},opts.signal);
+    const res=await aiCall({meal,n:k,hint:opts.hint||"",paste:!!opts.paste,pantry:opts.pantry,avoid:[...avoid,...out.map(r=>r.title)]},opts.signal);
     const arr=(res&&Array.isArray(res.recipes))?res.recipes:Array.isArray(res)?res:[];
     let got=0;
     for(const x of arr){const r=cleanRecipe(x,meal);if(r&&!violates(r).length){r.id=newId();out.push(r);got++}}
     if(!got)break;
-    if(opts.paste)break;
+    if(opts.paste||opts.pantry)break;
   }
   return out;
 }
@@ -809,7 +874,7 @@ function aiError(e){
   else toast("AI request failed"+(c?" ("+c+")":""));
   console.error(e);
 }
-async function saveRecipes(list){for(const r of list)S.recipes[r.id]=r;await api("POST","/api/recipes",{recipes:list})}
+async function saveRecipes(list){for(const r of list)S.recipes[r.id]=r;return api("POST","/api/recipes",{recipes:list})}
 
 async function fillAI(dates){
   const st=settings();
@@ -1047,6 +1112,11 @@ main.addEventListener("click",e=>{
       for(const [d,sl] of Object.entries(S.days))for(const [m,rid] of Object.entries(sl))if(rid===id){delete sl[m];if(!Object.keys(sl).length)delete S.days[d]}
       render();toast("Recipe deleted");break}
     case "ai-create": aiCreate(document.getElementById("newdesc").value,document.getElementById("newtype").value);break;
+    case "pantry-add": addToPantry();break;
+    case "pantry-rm": savePantry([ds.item],false);toast(cap(ds.item)+" removed",()=>savePantry([ds.item],true));break;
+    case "pantry-cook": suggestMeals();break;
+    case "idea-save": saveIdea(ds.id);break;
+    case "idea-clear": ui.ideas=null;render();break;
     case "signout": signOutHere();break;
     case "enrich": enrichRecipes();break;
     case "price-retry": ui.priceError=false;priceTried.clear();render();break;
@@ -1081,6 +1151,8 @@ main.addEventListener("change",e=>{
     render();api("PUT","/api/checks",{key:k,on:t.checked}).then(j=>{if(!j)loadState()});return}
   if(t.id==="hidedone"){ui.hideDone=t.checked;render();return}
   if(t.id==="newtype"){ui.newType=t.value;return}
+  if(t.id==="pantrymeal"){ui.pantryMeal=t.value;return}
+  if(t.id==="pantryonly"){ui.pantryOnly=t.checked;return}
   if(t.id==="adddate"){ui.addDate=t.value;return}
   if(t.id==="slot-date"&&ui.slotMove&&t.value){
     const d=parse(t.value),m=ui.slotMove;
@@ -1093,11 +1165,17 @@ main.addEventListener("change",e=>{
 main.addEventListener("input",e=>{
   if(e.target.id==="hint")ui.aiHint=e.target.value;
   if(e.target.id==="newdesc")ui.newDesc=e.target.value;
+  if(e.target.id==="pantryitem")ui.pantryText=e.target.value;
   if(e.target.closest("#settingsform")){ui.dirty=true;document.getElementById("dirtynote").textContent="Unsaved changes";document.getElementById("savebar").classList.add("dirty")}
   if(e.target.closest("#profileform"))ui.profileDirty=true;
   if(e.target.id==="recsearch"){ui.recSearch=e.target.value;clearTimeout(main._s);main._s=setTimeout(()=>{const el0=document.getElementById("recsearch");const pos=el0?el0.selectionStart:0;render();const el=document.getElementById("recsearch");if(el){el.focus();el.setSelectionRange(pos,pos)}},250)}
 });
-main.addEventListener("toggle",e=>{if(e.target.id==="aiadd")ui.aiOpen=e.target.open},true);
+main.addEventListener("toggle",e=>{
+  const t=e.target;
+  if(t.id==="aiadd")ui.aiOpen=t.open;
+  if(t.id==="pantry")ui.pantryOpen=t.open;
+  if(t.dataset.idea){if(t.open)ui.ideaOpen=t.dataset.idea;else if(ui.ideaOpen===t.dataset.idea)ui.ideaOpen=null}
+},true);
 
 function route(){const h=(location.hash||"#plan").slice(1);ui.tab=["plan","shopping","recipes","settings"].includes(h)?h:"plan";render();window.scrollTo(0,0)}
 window.addEventListener("hashchange",route);
