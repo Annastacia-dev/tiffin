@@ -25,12 +25,12 @@ export type Recipe = {
   calories: number | null;
   /** Steps to start ahead of cooking. Null until checked, empty if none. */
   prep: PrepStep[] | null;
-  /** Stock photo of a similar dish. Only /api/photos writes it, so saving a recipe leaves it alone. */
+  /** Stock photo of a similar dish, or an AI image of it. Only /api/photos writes it, so saving a recipe leaves it alone. */
   photo?: RecipePhoto | null;
 };
 
-/** An Unsplash photo. Its photographer has to be credited wherever it is shown large. */
-export type RecipePhoto = { id: string; src: string; thumb: string; alt: string; by: string; byUrl: string; url: string };
+/** An Unsplash photo, whose photographer has to be credited wherever it is shown large, or an AI image (ai), which has no credit. */
+export type RecipePhoto = { id: string; src: string; thumb: string; alt: string; by: string; byUrl: string; url: string; ai?: boolean };
 
 export type PrepStep = { task: string; hoursBefore: number };
 

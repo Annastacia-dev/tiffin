@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { currentUser } from "@/lib/auth";
+import { aiPhotosConfigured } from "@/lib/openai-images";
 import { getPantry } from "@/lib/pantry";
 import { pushConfigured } from "@/lib/push";
 import { supabase } from "@/lib/supabase";
@@ -40,7 +41,7 @@ export async function GET() {
     checks: Object.fromEntries((checks.data || []).map((c) => [c.key, true])),
     pantry,
     push: { publicKey: pushConfigured() ? process.env.VAPID_PUBLIC_KEY : null },
-    photos: photosConfigured(),
+    photos: { unsplash: photosConfigured(), ai: aiPhotosConfigured() },
     profile: { name: user.name, email: user.email, hasPassword: !!account.data?.password_hash },
   });
 }

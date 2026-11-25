@@ -1,5 +1,7 @@
-import { NextResponse } from "next/server";
+import { after, NextResponse } from "next/server";
 import { requireUser } from "@/lib/auth";
+import { aiPhotosConfigured } from "@/lib/openai-images";
+import { clearAiPhotos } from "@/lib/photo-store";
 import { supabase } from "@/lib/supabase";
 
 /** Deletes a recipe; plan slots using it are removed by the foreign key cascade. */
@@ -9,5 +11,6 @@ export async function DELETE(_req: Request, { params }: { params: Promise<{ id: 
   const { id } = await params;
   const { error } = await supabase().from("recipes").delete().eq("user_id", uid).eq("id", id);
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+  if (aiPhotosConfigured()) after(() => clearAiPhotos(uid, id));
   return NextResponse.json({ ok: true });
 }

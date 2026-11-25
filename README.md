@@ -34,6 +34,8 @@ Google follows the same one-account rule. It opens your account if the verified 
 
 Create an API key at [console.anthropic.com](https://console.anthropic.com). Filling a whole week costs a few requests.
 
+**Recipe photos (optional).** Set `UNSPLASH_ACCESS_KEY` for free stock photos, `OPENAI_API_KEY` for images made from the recipe, or both. AI images use your OpenAI credit and are kept in a public Supabase Storage bucket, which Tiffin creates. OpenAI may ask you to verify your organization first.
+
 ## 4. Run locally
 
 ```bash

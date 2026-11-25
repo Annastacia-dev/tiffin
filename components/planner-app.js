@@ -52,7 +52,7 @@ const TABS=[
 ];
 
 /* ---------- state ---------- */
-const S={recipes:{},days:{},settings:null,checks:{},profile:null,pushKey:null,prices:{},photos:false,pantry:null};
+const S={recipes:{},days:{},settings:null,checks:{},profile:null,pushKey:null,prices:{},photos:{},pantry:null};
 let today=new Date(); today.setHours(0,0,0,0);
 const ui={tab:"plan",mode:"week",anchor:mondayOf(today),day:ymd(today),meal:0,shopRange:"week",shopFrom:null,shopTo:null,hideDone:false,recFilter:"All",recSearch:"",openRecipe:null,aiHint:"",delArm:null,
   loaded:false,loadFailed:false,dirty:false,profileDirty:false,settingsDraft:null,aiOpen:null,newDesc:"",newType:"Lunch",addDate:null,push:"checking",slotMove:null,secOpen:{},slotMoreOpen:false,justChecked:null,pantryOpen:false,pantryText:"",pantryMeal:null,pantryOnly:false,ideas:null,setSearch:""};
@@ -192,7 +192,7 @@ async function loadState(){
     if(r.status===401){location.href="/signin";return}
     if(!r.ok)throw new Error("HTTP "+r.status);
     const j=await r.json();
-    S.recipes=j.recipes||{};S.days=j.days||{};S.settings=j.settings||null;S.checks=j.checks||{};S.profile=j.profile||S.profile;S.pushKey=j.push?.publicKey||null;S.prices=j.prices||{};S.photos=!!j.photos;S.pantry=j.pantry||null;
+    S.recipes=j.recipes||{};S.days=j.days||{};S.settings=j.settings||null;S.checks=j.checks||{};S.profile=j.profile||S.profile;S.pushKey=j.push?.publicKey||null;S.prices=j.prices||{};S.photos=j.photos||{};S.pantry=j.pantry||null;
     ui.offline=!!r.headers.get("x-tiffin-offline");
     const first=!ui.loaded;
     ui.loaded=true;ui.loadFailed=false;
@@ -307,18 +307,56 @@ function closeSheet(){
   sheet.classList.remove("show");sheetTimer=setTimeout(()=>{sheet.hidden=true;sheet.innerHTML=""},340);
   (sheetReturn&&document.contains(sheetReturn)&&sheetReturn!==document.body?sheetReturn:main.querySelector(".morebtn"))?.focus({preventScroll:true});
 }
-// A sheet of photos to choose from, with a search box because stock photos won't know every dish by name
-let photoSearch=0;
+// A sheet for adding a photo: Unsplash, with a search box because stock photos won't know every dish by name, or an AI image
+let photoSearch=0,photoSource="unsplash";
+const makingPhoto=new Set();
+const canAddPhotos=()=>!!(S.photos.unsplash||S.photos.ai);
 function openPhotos(id){
   const r=S.recipes[id];if(!r)return;
   clearTimeout(sheetTimer);sheetReturn=document.activeElement;
   sheet.innerHTML=`<div class="sheetback" data-close></div><div class="sheetbox photobox" role="dialog" aria-modal="true" aria-label="Choose a photo"><div class="sheetgroup"><div class="sheettitle">Choose a photo</div>
-    <form class="photosearch" data-recipe="${esc(id)}"><input type="search" aria-label="Search for a dish" maxlength="100" value="${esc(r.title)}"><button class="btn" type="submit">Search</button></form>
-    <div class="photoresults" aria-live="polite"></div>
-    <p class="photocredit">Photos provided by <a href="https://unsplash.com/?utm_source=tiffin&amp;utm_medium=referral" target="_blank" rel="noopener noreferrer">Unsplash</a></p></div><button type="button" class="sheetcancel" data-close>Cancel</button></div>`;
+    ${S.photos.unsplash&&S.photos.ai?'<div class="seg phototabs"><button type="button" data-source="unsplash">Unsplash</button><button type="button" data-source="ai">Make with AI</button></div>':""}
+    <div class="photopane" data-recipe="${esc(id)}"></div></div><button type="button" class="sheetcancel" data-close>Cancel</button></div>`;
   sheet.hidden=false;void sheet.offsetWidth;sheet.classList.add("show");
   sheet.querySelector(".sheetcancel").focus({preventScroll:true});
-  findPhotos(r.title);
+  showPhotoSource(photoSource);
+}
+function showPhotoSource(source){
+  const pane=sheet.querySelector(".photopane"),id=pane.dataset.recipe,r=S.recipes[id];if(!r)return;
+  if(!S.photos[source])source=S.photos.ai?"ai":"unsplash";
+  photoSource=source;photoSearch++;
+  sheet.querySelectorAll("[data-source]").forEach(b=>{const on=b.dataset.source===source;b.classList.toggle("on",on);b.setAttribute("aria-pressed",on)});
+  pane.innerHTML=source==="ai"
+    ?`<p class="photonote">OpenAI makes an image from this recipe's title, ingredients and steps. Each one uses a little of your OpenAI credit.</p>
+    <form class="photosearch"><input type="text" aria-label="Anything to show in the image, optional" placeholder="Anything to show? (optional)" maxlength="200" autocomplete="off"><button class="btn" type="submit">Make</button></form>
+    <div class="photostatus" role="status"></div>`
+    :`<form class="photosearch"><input type="search" aria-label="Search for a dish" maxlength="100" value="${esc(r.title)}"><button class="btn" type="submit">Search</button></form>
+    <div class="photoresults" aria-live="polite"></div>
+    <p class="photocredit">Photos provided by <a href="https://unsplash.com/?utm_source=tiffin&amp;utm_medium=referral" target="_blank" rel="noopener noreferrer">Unsplash</a></p>`;
+  if(source==="ai")photoMaking(id);else findPhotos(r.title);
+}
+// Shows whether this recipe's image is being made. The sheet may have been closed or moved on since it started.
+function photoMaking(id,error=""){
+  const pane=sheet.querySelector(".photopane"),box=pane&&pane.querySelector(".photostatus");
+  if(!box||pane.dataset.recipe!==id)return false;
+  const on=makingPhoto.has(id);
+  pane.querySelectorAll("input,.btn").forEach(x=>{x.disabled=on});
+  box.innerHTML=on?'<div class="spinner"></div><p class="muted">Making your image. It can take up to a minute, and you can close this while you wait.</p>':error?`<p class="muted">${esc(error)}</p>`:"";
+  return sheet.classList.contains("show");
+}
+async function makePhoto(id,detail){
+  if(makingPhoto.has(id))return;
+  makingPhoto.add(id);photoMaking(id);pending++;
+  try{
+    const {photo}=await photoApi("/api/photos",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({recipeId:id,detail})});
+    makingPhoto.delete(id);
+    if(S.recipes[id])S.recipes[id].photo=photo;
+    if(photoMaking(id))closeSheet();
+    softRender();toast("Photo added");
+  }catch(e){
+    makingPhoto.delete(id);
+    const msg=photoError(e);if(!photoMaking(id,msg))toast(msg);
+  }finally{pending--}
 }
 async function photoApi(url,opts){
   const r=await fetch(url,opts);
@@ -344,7 +382,7 @@ async function setPhoto(recipeId,photoId){
   render();
 }
 async function choosePhoto(btn){
-  const id=sheet.querySelector(".photosearch").dataset.recipe,grid=btn.closest(".photogrid"),box=sheet.querySelector(".sheetbox");
+  const id=sheet.querySelector(".photopane").dataset.recipe,grid=btn.closest(".photogrid"),box=sheet.querySelector(".sheetbox");
   grid.querySelectorAll("button").forEach(b=>{b.disabled=true});btn.classList.add("saving");
   pending++;
   try{await setPhoto(id,btn.dataset.photo);if(box.isConnected)closeSheet();toast("Photo added")}
@@ -356,13 +394,14 @@ async function removePhoto(id){
   pending++;
   try{
     await setPhoto(id,null);
-    toast("Photo removed",S.photos?()=>setPhoto(id,old.id).catch(e=>toast(photoError(e))):null);
+    toast("Photo removed",old.ai||S.photos.unsplash?()=>setPhoto(id,old.id).catch(e=>toast(photoError(e))):null);
   }catch(e){toast(photoError(e))}finally{pending--}
 }
-sheet.addEventListener("submit",e=>{e.preventDefault();const q=e.target.querySelector("input").value.trim();if(q)findPhotos(q)});
+sheet.addEventListener("submit",e=>{e.preventDefault();const q=e.target.querySelector("input").value.trim();if(photoSource==="ai")makePhoto(e.target.closest(".photopane").dataset.recipe,q);else if(q)findPhotos(q)});
 // A photo that won't load, such as offline, is hidden rather than left as a broken image
 document.addEventListener("error",e=>{const t=e.target;if(t.tagName==="IMG"&&(t.closest(".photo")||t.classList.contains("thumb")))t.hidden=true},true);
 sheet.addEventListener("click",e=>{
+  const src=e.target.closest("[data-source]");if(src){showPhotoSource(src.dataset.source);return}
   const pick=e.target.closest("[data-photo]");if(pick){choosePhoto(pick);return}
   const act=e.target.closest("[data-sheet]")?.dataset.sheet;
   if(act||e.target.closest("[data-close]"))closeSheet();
@@ -371,7 +410,7 @@ sheet.addEventListener("click",e=>{
 sheet.addEventListener("keydown",e=>{
   if(e.key==="Escape"){closeSheet();return}
   if(e.key!=="Tab")return;
-  const all=[...sheet.querySelectorAll("button:not(:disabled),input,a[href]")],i=all.indexOf(document.activeElement);
+  const all=[...sheet.querySelectorAll("button:not(:disabled),input:not(:disabled),a[href]")],i=all.indexOf(document.activeElement);
   e.preventDefault();all[(i+(e.shiftKey?-1:1)+all.length)%all.length].focus();
 });
 
@@ -430,10 +469,10 @@ function thumbHTML(r){return r&&r.photo&&settings().showPhotos?`<img class="thum
 function photoHTML(r){
   if(!settings().showPhotos)return"";
   const p=r.photo,id=esc(r.id);
-  if(!p)return S.photos?`<button type="button" class="tool addphoto" data-act="photo-pick" data-id="${id}">${ICON_PHOTO}<span>Add a photo</span></button>`:"";
-  return `<figure class="photo"><img src="${esc(p.src)}" alt="${esc(p.alt||"A dish similar to "+r.title)}" width="1200" height="627" decoding="async">
-    <figcaption><span>A similar dish. Photo by <a href="${esc(p.byUrl||p.url)}" target="_blank" rel="noopener noreferrer">${esc(p.by)}</a> on <a href="${esc(p.url)}" target="_blank" rel="noopener noreferrer">Unsplash</a></span>
-    <span class="photoacts">${S.photos?`<button type="button" class="link" data-act="photo-pick" data-id="${id}">Change</button>`:""}<button type="button" class="link" data-act="photo-remove" data-id="${id}">Remove</button></span></figcaption></figure>`;
+  if(!p)return canAddPhotos()?`<button type="button" class="tool addphoto" data-act="photo-pick" data-id="${id}">${ICON_PHOTO}<span>Add a photo</span></button>`:"";
+  return `<figure class="photo"><img src="${esc(p.src)}" alt="${esc(p.ai?"AI image of "+r.title:p.alt||"A dish similar to "+r.title)}" width="1200" height="627" decoding="async">
+    <figcaption><span>${p.ai?"Image made with AI":`A similar dish. Photo by <a href="${esc(p.byUrl||p.url)}" target="_blank" rel="noopener noreferrer">${esc(p.by)}</a> on <a href="${esc(p.url)}" target="_blank" rel="noopener noreferrer">Unsplash</a>`}</span>
+    <span class="photoacts">${canAddPhotos()?`<button type="button" class="link" data-act="photo-pick" data-id="${id}">Change</button>`:""}<button type="button" class="link" data-act="photo-remove" data-id="${id}">Remove</button></span></figcaption></figure>`;
 }
 function recipeHTML(r,{showType=true,showTitle=true,showPhoto=true,date=null,meal=null}={}){
   const v=violates(r);
@@ -762,7 +801,7 @@ function renderSettings(){
     <label for="s-lp">Portions per lunch or dinner recipe</label><input type="number" id="s-lp" min="1" max="8" value="${esc(st.lunchPortions)}" style="width:100px">
     <label data-find="kcal energy">Calories</label><div class="help">AI estimates per portion. They're a guide, not a measurement.</div>
     <div class="switches"><label><input type="checkbox" id="s-cal" ${st.showCalories?"checked":""}>Show calories for each meal</label></div>
-    <label data-find="picture image">Photos</label><div class="help">Adds a button to each recipe that finds free photos of a similar dish on Unsplash. Nothing is added until you pick one.${S.photos?"":" To find photos, add UNSPLASH_ACCESS_KEY to the server settings first."}</div>
+    <label data-find="picture image unsplash openai ai">Photos</label><div class="help">Adds a button to each recipe for a photo. Choose a free one of a similar dish from Unsplash, or have OpenAI make one of your recipe, which uses your OpenAI credit. Nothing is added until you choose.${S.photos.unsplash?"":" For Unsplash, add UNSPLASH_ACCESS_KEY to the server settings first."}${S.photos.ai?"":" For AI images, add OPENAI_API_KEY to the server settings first."}</div>
     <div class="switches"><label><input type="checkbox" id="s-photos" ${st.showPhotos?"checked":""}>Show recipe photos</label></div>
     <label data-find="kcal limit maximum daily" for="s-maxcal">Most calories per day</label><div class="help">AI splits this across the meals you plan and keeps each new recipe within its share, leaving room for a leftover portion when only one of lunch or dinner is planned. Your plan warns you when a day goes over. Leave blank for no limit.</div>
     <input type="number" id="s-maxcal" min="500" max="10000" step="50" inputmode="numeric" value="${esc(st.maxCalories??"")}" style="width:120px">

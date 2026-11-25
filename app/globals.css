@@ -383,6 +383,11 @@ main.pop{animation:pop-back .36s var(--ease)}
 .photosearch{display:flex;gap:8px;padding:0 14px 12px}
 .photosearch input{flex:1;min-width:0}
 .sheetgroup .photosearch .btn{width:auto;min-height:0;border-top:none;background:var(--green);color:#fff;font-size:14px}
+.sheetgroup .phototabs{margin:0 14px 12px}
+.sheetgroup .phototabs button{flex:1;min-height:36px;border:none;font-size:14px;color:var(--ink)}
+.photonote{margin:0;padding:0 16px 12px;font-size:13px;color:var(--muted)}
+.photostatus:not(:empty){padding:10px 16px 18px;text-align:center}
+.photostatus .muted{margin:0}
 .photoresults{max-height:52vh;min-height:120px;overflow-y:auto;overscroll-behavior:contain;padding:0 14px}
 .photoresults .muted{text-align:center;padding:32px 0;margin:0}
 .photogrid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}
